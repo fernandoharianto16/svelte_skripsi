@@ -5,7 +5,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"start": "node src/lib/server/server.js",
+		"start": "nodemon src/lib/server/server.js",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch"
 	},
@@ -16,6 +16,7 @@
 		"@sveltejs/adapter-node": "^5.0.1",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
+		"nodemon": "^3.1.4",
 		"svelte": "^4.2.7",
 		"svelte-check": "^3.6.0",
 		"typescript": "^5.0.0",
