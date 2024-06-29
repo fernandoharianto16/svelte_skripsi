@@ -72,6 +72,33 @@ app.get('/api/getUsers', async (req, res) => {
 });
 
 
+app.post('/api/addUsers', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).send('Name dan email harus disertakan');
+    }
+
+    const newUser = {
+      email: email,
+      nama: name,
+      password:"123",
+      poin:0,
+      status:true,
+    };
+
+    const usersRef = db.collection('users');
+    const result = await usersRef.add(newUser);
+
+    res.status(201).json({ id: result.id, data: newUser });
+  } catch (error) {
+    console.error('Gagal menambahkan data:', error);
+    res.status(500).send('Terjadi kesalahan saat menambahkan data');
+  }
+});
+
+
 // SvelteKit handler
 app.use(handler); // Menyerahkan kontrol ke SvelteKit untuk rute yang tidak ditangani
 

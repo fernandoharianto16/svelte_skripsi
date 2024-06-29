@@ -1,17 +1,18 @@
 <script>
-	import { onMount } from 'svelte';
-		import axios from 'axios';
-		let message = '';
-		onMount(async () => {
+	import { onMount } from "svelte";
+	import axios from "axios";
+	let message = "";
+	onMount(async () => {
 		try {
-		const response = await axios.get('http://localhost:3000/api/getUsers');
-		console.log(response);
-		message = response.data[1].data.nama;
+			const response = await axios.get(
+				"http://localhost:3000/api/getUsers",
+			);
+			console.log(response.data.data[0].data);
+			message = response.data;
 		} catch (error) {
-		console.error('Error fetching data:', error);
+			console.error("Error fetching data:", error);
 		}
 	});
-
 </script>
 
 <svelte:head>
@@ -21,9 +22,9 @@
 
 <div class="text-column">
 	<h1>About this app</h1>
-aaaaaaaaaa
+	aaaaaaaaaa
 
-{message}
+	{message}
 	<!-- <p>
 		This is a <a href="https://kit.svelte.dev">SvelteKit</a> app. You can make your own by typing the
 		following into your command line and following the prompts:
