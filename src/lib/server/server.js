@@ -74,15 +74,15 @@ app.get('/api/getUsers', async (req, res) => {
 
 app.post('/api/addUsers', async (req, res) => {
   try {
-    const { name, email } = req.body;
+    const { email, password } = req.body;
 
-    if (!name || !email) {
+    if (!email || !password) {
       return res.status(400).send('Name dan email harus disertakan');
     }
-
+    const username = email.split('@')[0];
     const newUser = {
       email: email,
-      nama: name,
+      nama: username,
       password:"123",
       poin:0,
       status:true,

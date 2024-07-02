@@ -11,13 +11,13 @@
     errors = {};
 
     if (email.length === 0) {
-      errors.email = "Field should not be empty";
+      errors.email = "Field email tidak boleh kosong";
     }
     if (password.length === 0) {
-      errors.password = "Field should not be empty";
+      errors.password = "Field password tidak boleh kosong";
     }
     if (password !== confirmPassword) {
-      errors.confirmPassword = "Passwords do not match";
+      errors.confirmPassword = "Password dengan konfirmasi password tidak sama";
     }
 
     if (Object.keys(errors).length === 0) {
@@ -28,14 +28,16 @@
           // Lakukan validasi tambahan jika diperlukan
           setTimeout(() => {
             // Simulasikan kondisi berhasil atau gagal
-            const isSuccess = Math.random() < 0.8; // 80% berhasil
+            // const isSuccess = Math.random() < 0.8; // 80% berhasil
+            const isSuccess=true;
 
             if (isSuccess) {
+              console.log("sukses registrasi");
               resolve({ message: "Registration successful!" });
             } else {
               reject("Registration failed. Please try again.");
             }
-          }, 1000); // Waktu tunggu simulasi 1 detik
+          }, 2000); // Waktu tunggu simulasi 2 detik
         });
 
         console.log(response.message);
@@ -149,7 +151,7 @@
   <form on:submit|preventDefault={handleSubmit}>
     {#if isSuccess}
       <div class="success">
-        🎉 Registration Successful!
+        ✅ Registration Successful!
       </div>
     {:else}
       <h1>Register</h1>
@@ -163,7 +165,7 @@
       <label for="confirmPassword">Konfirmasi Password</label>
       <input type="password" id="confirmPassword" bind:value={confirmPassword} />
 
-      <button type="submit" on:click={handleSubmit}>
+      <button type="submit">
         {#if isLoading}Proses Register...{:else}Register 📝{/if}
       </button>
 
