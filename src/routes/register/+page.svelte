@@ -1,4 +1,8 @@
 <script>
+  import { onMount } from "svelte";
+  import axios from "axios";
+  let message = "";
+
   let email = "";
   let password = "";
   let confirmPassword = "";
@@ -7,7 +11,25 @@
   let isSuccess = false;
   let errors = {};
 
+  let newUserData = {
+    emailInput: "",
+    passwordInput: "",
+  };
+  // onMount(async () => {
+  // 	try {
+  // 		const response = await axios.get(
+  // 			"http://localhost:3000/api/getUsers",
+  // 		);
+  // 		console.log(response.data.data[0].data);
+  // 		message = response.data;
+  // 	} catch (error) {
+  // 		console.error("Error fetching data:", error);
+  // 	}
+  // });
+  let data;
+
   const handleSubmit = async () => {
+    // console.log(email,password);
     errors = {};
 
     if (email.length === 0) {
@@ -29,13 +51,14 @@
           setTimeout(() => {
             // Simulasikan kondisi berhasil atau gagal
             // const isSuccess = Math.random() < 0.8; // 80% berhasil
-            const isSuccess=true;
+            addUser(email, password);
+            const isSuccess = true;
 
             if (isSuccess) {
-              console.log("sukses registrasi");
-              resolve({ message: "Registration successful!" });
+              // console.log("masuk sini");
+              resolve({ message: "Registrasi sukses!" });
             } else {
-              reject("Registration failed. Please try again.");
+              reject("Registrasi gagal. Silahkan input ulang.");
             }
           }, 2000); // Waktu tunggu simulasi 2 detik
         });
@@ -50,7 +73,69 @@
       }
     }
   };
+  /**
+   * @param {string} email
+   * @param {string} password
+   */
+  async function addUser(email, password) {
+    let responseMessage = "";
+    newUserData = {
+      emailInput: email,
+      passwordInput: password,
+    };
+    try {
+      const response = await axios.post(
+        "http://localhost:3000/api/addUsers",
+        newUserData,
+      );
+      responseMessage = response.data.message;
+      console.log("User added successfully:", response.data);
+    } catch (error) {
+      console.error("Error adding user:", error);
+      responseMessage = "Error adding user";
+    }
+  }
 </script>
+
+<div class="container">
+  <form on:submit|preventDefault={handleSubmit}>
+    {#if isSuccess}
+      <div class="success">✅ Registration Successful!</div>
+    {:else}
+      <h1>Register</h1>
+
+      <label for="email">Email</label>
+      <input
+        type="email"
+        id="email"
+        bind:value={email}
+        placeholder="name@example.com"
+      />
+
+      <label for="password">Password</label>
+      <input type="password" id="password" bind:value={password} />
+
+      <label for="confirmPassword">Konfirmasi Password</label>
+      <input
+        type="password"
+        id="confirmPassword"
+        bind:value={confirmPassword}
+      />
+
+      <button type="submit">
+        {#if isLoading}Proses Register...{:else}Register 📝{/if}
+      </button>
+
+      {#if Object.keys(errors).length > 0}
+        <ul class="errors">
+          {#each Object.keys(errors) as field}
+            <li>{field}: {errors[field]}</li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+  </form>
+</div>
 
 <style>
   body {
@@ -146,36 +231,3 @@
     color: green;
   }
 </style>
-
-<div class="container">
-  <form on:submit|preventDefault={handleSubmit}>
-    {#if isSuccess}
-      <div class="success">
-        ✅ Registration Successful!
-      </div>
-    {:else}
-      <h1>Register</h1>
-
-      <label for="email">Email</label>
-      <input type="email" id="email" bind:value={email} placeholder="name@example.com" />
-
-      <label for="password">Password</label>
-      <input type="password" id="password" bind:value={password} />
-
-      <label for="confirmPassword">Konfirmasi Password</label>
-      <input type="password" id="confirmPassword" bind:value={confirmPassword} />
-
-      <button type="submit">
-        {#if isLoading}Proses Register...{:else}Register 📝{/if}
-      </button>
-
-      {#if Object.keys(errors).length > 0}
-        <ul class="errors">
-          {#each Object.keys(errors) as field}
-            <li>{field}: {errors[field]}</li>
-          {/each}
-        </ul>
-      {/if}
-    {/if}
-  </form>
-</div>
