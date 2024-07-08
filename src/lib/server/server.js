@@ -71,6 +71,36 @@ app.get('/api/getUsers', async (req, res) => {
   }
 });
 
+// Endpoint untuk mencari pengguna berdasarkan email
+app.get('/api/getUserByEmail', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).send('Email tidak diberikan');
+    }
+    console.log(email);
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.where('email', '==', email).get();
+    if (snapshot.empty) {
+      console.log('Tidak ada pengguna yang ditemukan dengan email tersebut.');
+      return res.status(404).send('Pengguna tidak ditemukan');
+    }
+
+    let user = null;
+    snapshot.forEach(doc => {
+      user = {
+        id: doc.id,
+        data: doc.data()
+      };
+    });
+
+    res.status(200).json({ data: user });
+  } catch (error) {
+    console.error('Gagal mengambil data:', error);
+    res.status(500).send('Terjadi kesalahan saat mengambil data');
+  }
+});
+
 
 app.post('/api/addUsers', async (req, res) => {
   try {
