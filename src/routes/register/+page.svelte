@@ -97,6 +97,11 @@
   }
 </script>
 
+<svelte:head>
+	<title>Register</title>
+	<!-- <meta name="description" content="About this app" /> -->
+</svelte:head>
+
 <div class="container">
   <form on:submit|preventDefault={handleSubmit}>
     {#if isSuccess}
@@ -137,8 +142,7 @@
   </form>
 </div>
 
-<style>
-  body {
+  <!-- body {
     margin: 0;
     font-family: Arial, Helvetica, sans-serif;
     background-color: #f7f8fa;
@@ -146,7 +150,8 @@
     justify-content: center;
     align-items: center;
     height: 100vh;
-  }
+  } -->
+<style>
 
   .container {
     display: flex;

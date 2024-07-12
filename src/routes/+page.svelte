@@ -40,6 +40,11 @@
 		try editing <strong>src/routes/+page.svelte</strong>
 	</h2>
 	HALO FUSHIA
+	<br>
+	<strong>
+		ini Setelah Login
+
+	</strong>
 
 	<Counter />
 </section>
