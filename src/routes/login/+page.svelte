@@ -1,8 +1,6 @@
 <script>
   import { auth } from "../../firebase/firebase.js";
-  import { sendSignInLinkToEmail } from "firebase/auth";
-  import { isSignInWithEmailLink } from "firebase/auth";
-  import { signInWithEmailLink } from "firebase/auth";
+  import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
   let email = "";
   let password = "";
@@ -23,44 +21,27 @@
 
     if (Object.keys(errors).length === 0) {
       isLoading = true;
-      const actionCodeSettings = {
-        // URL you want to redirect back to. The domain (www.example.com) for this
-        // URL must be in the authorized domains list in the Firebase Console.
-        url: "http://localhost:5173/",
-        // This must be true.
-        handleCodeInApp: true,
-        iOS: {
-          bundleId: "com.example.ios",
-        },
-        android: {
-          packageName: "com.example.android",
-          installApp: true,
-          minimumVersion: "12",
-        },
-        dynamicLinkDomain: "example.page.link",
-      };
 
-      sendSignInLinkToEmail(auth, email, actionCodeSettings)
-        .then(() => {
-          // The link was successfully sent. Inform the user.
-          // Save the email locally so you don't need to ask the user for it again
-          // if they open the link on the same device.
-          window.localStorage.setItem("emailForSignIn", email);
+      signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+          // Signed in
+          const user = userCredential.user;
+          console.log("Kamu Berhasil Login!",user);
+          isSuccess=true;
           // ...
         })
         .catch((error) => {
           const errorCode = error.code;
           const errorMessage = error.message;
-          // ...
+          console.log("Gagal Login!, Silahkan Coba Ulang", errorCode, errorMessage);
         });
-
     }
   };
 </script>
 
 <svelte:head>
-	<title>Login</title>
-	<!-- <meta name="description" content="About this app" /> -->
+  <title>Login</title>
+  <!-- <meta name="description" content="About this app" /> -->
 </svelte:head>
 
 <div class="container">

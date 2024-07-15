@@ -1,5 +1,7 @@
 <script>
   import { onMount } from "svelte";
+  import { createUserWithEmailAndPassword } from "firebase/auth";
+  import { auth } from "../../firebase/firebase.js";
   import axios from "axios";
   let message = "";
 
@@ -10,6 +12,8 @@
   let isLoading = false;
   let isSuccess = false;
   let errors = {};
+
+  let responseMessage = "";
 
   let newUserData = {
     emailInput: "",
@@ -38,10 +42,14 @@
     if (password.length === 0) {
       errors.password = "Field password tidak boleh kosong";
     }
+    if(password.length < 8){
+      errors.password = "Password tidak boleh kurang dari 8 digit karakter";
+    }
     if (password !== confirmPassword) {
       errors.confirmPassword = "Password dengan konfirmasi password tidak sama";
     }
 
+    // Cek inputan error
     if (Object.keys(errors).length === 0) {
       isLoading = true;
       try {
@@ -51,7 +59,8 @@
           setTimeout(() => {
             // Simulasikan kondisi berhasil atau gagal
             // const isSuccess = Math.random() < 0.8; // 80% berhasil
-            addUser(email, password);
+            // addUser(email, password);
+            addAuthUser(email,password);
             const isSuccess = true;
 
             if (isSuccess) {
@@ -77,12 +86,38 @@
    * @param {string} email
    * @param {string} password
    */
+  async function addAuthUser(email, password) {
+    // Tambahkan pengguna ke Firebase Authentication
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    )
+      .then((userCredential) => {
+        // Signed up
+        const user = userCredential.user;
+        console.log("User Auth added successfully to Firebase Auth!");
+        // ...
+      })
+      .catch((error) => {
+        const errorCode = error.code;
+        const errorMessage = error.message;
+        console.log(errorCode,errorMessage);
+      });
+    // const user = userCredential.user;
+  }
+
+  //Menambah User
+  /**
+   * @param {string} email
+   * @param {string} password
+   */
   async function addUser(email, password) {
-    let responseMessage = "";
     newUserData = {
       emailInput: email,
       passwordInput: password,
     };
+    //Memanggil API addUsers dari Back-End
     try {
       const response = await axios.post(
         "http://localhost:3000/api/addUsers",
@@ -98,14 +133,15 @@
 </script>
 
 <svelte:head>
-	<title>Register</title>
-	<!-- <meta name="description" content="About this app" /> -->
+  <title>Register</title>
+  <!-- <meta name="description" content="About this app" /> -->
 </svelte:head>
 
 <div class="container">
   <form on:submit|preventDefault={handleSubmit}>
     {#if isSuccess}
       <div class="success">✅ Registration Successful!</div>
+      
     {:else}
       <h1>Register</h1>
 
@@ -142,7 +178,7 @@
   </form>
 </div>
 
-  <!-- body {
+<!-- body {
     margin: 0;
     font-family: Arial, Helvetica, sans-serif;
     background-color: #f7f8fa;
@@ -152,7 +188,6 @@
     height: 100vh;
   } -->
 <style>
-
   .container {
     display: flex;
     justify-content: center;
