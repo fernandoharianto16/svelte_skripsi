@@ -64,7 +64,7 @@ app.get('/api/getUsers', async (req, res) => {
       });
     });
 
-    res.status(200).json({data:users});
+    res.status(200).json({ data: users });
   } catch (error) {
     console.error('Gagal mengambil data:', error);
     res.status(500).send('Terjadi kesalahan saat mengambil data');
@@ -105,7 +105,7 @@ app.get('/api/getUserByEmail', async (req, res) => {
 app.post('/api/addUsers', async (req, res) => {
   try {
 
-    const { emailInput, passwordInput } = req.body;
+    const { emailInput, passwordInput, roleSelected } = req.body;
     console.log(req.body);
     if (!emailInput || !passwordInput) {
       return res.status(400).send('Email dan Password harus disertakan');
@@ -114,9 +114,10 @@ app.post('/api/addUsers', async (req, res) => {
     const newUser = {
       email: emailInput,
       nama: username,
-      password:passwordInput,
-      poin:0,
-      status:true,
+      role: roleSelected,
+      password: passwordInput,
+      poin: 0,
+      status: true,
     };
 
     const usersRef = db.collection('users');

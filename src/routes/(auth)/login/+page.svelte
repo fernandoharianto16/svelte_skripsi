@@ -1,5 +1,5 @@
 <script>
-  import { auth } from "../../firebase/firebase.js";
+  import { auth } from "../../../firebase/firebase.js";
   import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
   let email = "";
@@ -61,6 +61,7 @@
         id="email"
         placeholder="name@example.com"
         bind:value={email}
+        autocomplete="email"
       />
 
       <label for="password">Password</label>
@@ -69,6 +70,7 @@
         id="password"
         type="password"
         bind:value={password}
+        autocomplete="current-password"
       />
 
       <button type="submit">

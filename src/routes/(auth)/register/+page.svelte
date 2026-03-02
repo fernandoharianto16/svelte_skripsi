@@ -1,11 +1,12 @@
 <script>
   import { onMount } from "svelte";
   import { createUserWithEmailAndPassword } from "firebase/auth";
-  import { auth } from "../../firebase/firebase.js";
+  import { auth } from "../../../firebase/firebase.js";
   import axios from "axios";
   let message = "";
 
   let email = "";
+  let role = "buyer";
   let password = "";
   let confirmPassword = "";
 
@@ -19,21 +20,10 @@
     emailInput: "",
     passwordInput: "",
   };
-  // onMount(async () => {
-  // 	try {
-  // 		const response = await axios.get(
-  // 			"http://localhost:3000/api/getUsers",
-  // 		);
-  // 		console.log(response.data.data[0].data);
-  // 		message = response.data;
-  // 	} catch (error) {
-  // 		console.error("Error fetching data:", error);
-  // 	}
-  // });
   let data;
 
   const handleSubmit = async () => {
-    // console.log(email,password);
+    // console.log(email,password, role);
     errors = {};
 
     if (email.length === 0) {
@@ -42,7 +32,7 @@
     if (password.length === 0) {
       errors.password = "Field password tidak boleh kosong";
     }
-    if(password.length < 8){
+    if (password.length < 8) {
       errors.password = "Password tidak boleh kurang dari 8 digit karakter";
     }
     if (password !== confirmPassword) {
@@ -57,10 +47,9 @@
         const response = await new Promise((resolve, reject) => {
           // Lakukan validasi tambahan jika diperlukan
           setTimeout(() => {
-            // Simulasikan kondisi berhasil atau gagal
-            // const isSuccess = Math.random() < 0.8; // 80% berhasil
-            // addUser(email, password);
-            addAuthUser(email,password);
+            // MENAMBAHKAN USER KE FIREBASE DAN KE FIRESTORE USER BARU
+            addUser(email, password, role);
+            addAuthUser(email, password);
             const isSuccess = true;
 
             if (isSuccess) {
@@ -102,7 +91,7 @@
       .catch((error) => {
         const errorCode = error.code;
         const errorMessage = error.message;
-        console.log(errorCode,errorMessage);
+        console.log(errorCode, errorMessage);
       });
     // const user = userCredential.user;
   }
@@ -112,10 +101,11 @@
    * @param {string} email
    * @param {string} password
    */
-  async function addUser(email, password) {
+  async function addUser(email, password, role) {
     newUserData = {
       emailInput: email,
       passwordInput: password,
+      roleSelected: role
     };
     //Memanggil API addUsers dari Back-End
     try {
@@ -141,7 +131,6 @@
   <form on:submit|preventDefault={handleSubmit}>
     {#if isSuccess}
       <div class="success">✅ Registration Successful!</div>
-      
     {:else}
       <h1>Register</h1>
 
@@ -151,16 +140,31 @@
         id="email"
         bind:value={email}
         placeholder="name@example.com"
+        autocomplete="email"
       />
 
+      <label for="role">Mendaftar sebagai</label>
+      <div class="role-group">
+        <label class="role-option">
+          <input type="radio" name="role" value="buyer" bind:group={role} />
+          Pembeli
+        </label>
+
+        <label class="role-option">
+          <input type="radio" name="role" value="seller" bind:group={role} />
+          Penjual
+        </label>
+      </div>
+
       <label for="password">Password</label>
-      <input type="password" id="password" bind:value={password} />
+      <input type="password" id="password" bind:value={password} autocomplete="new-password" />
 
       <label for="confirmPassword">Konfirmasi Password</label>
       <input
         type="password"
         id="confirmPassword"
         bind:value={confirmPassword}
+        autocomplete="new-password"
       />
 
       <button type="submit">
@@ -178,15 +182,6 @@
   </form>
 </div>
 
-<!-- body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background-color: #f7f8fa;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  } -->
 <style>
   .container {
     display: flex;
@@ -269,5 +264,19 @@
     font-size: 24px;
     text-align: center;
     color: green;
+  }
+
+  .role-group {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin: 15px 0;
+  }
+
+  .role-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
   }
 </style>

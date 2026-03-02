@@ -6,9 +6,10 @@
 
 <header>
 	<div class="corner">
-		<a href="https://kit.svelte.dev">
+		ini corner
+		<!-- <a href="https://kit.svelte.dev">
 			<img src={logo} alt="SvelteKit" />
-		</a>
+		</a> -->
 	</div>
 
 	<nav>
@@ -44,9 +45,10 @@
 	</nav>
 
 	<div class="corner">
-		<a href="https://github.com/sveltejs/kit">
+		ini corner 
+		<!-- <a href="https://github.com/sveltejs/kit">
 			<img src={github} alt="GitHub" />
-		</a>
+		</a> -->
 	</div>
 </header>
 
