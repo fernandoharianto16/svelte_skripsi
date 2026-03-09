@@ -1,5 +1,5 @@
 <script>
-  import { auth } from "../../../firebase/firebase.js";
+  import { auth } from "../../../lib/firebase.js";
   import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 
   let email = "";
@@ -29,6 +29,7 @@
           console.log("Kamu Berhasil Login!",user);
           isSuccess=true;
           // ...
+          console.log(user.email);
         })
         .catch((error) => {
           const errorCode = error.code;
@@ -41,7 +42,6 @@
 
 <svelte:head>
   <title>Login</title>
-  <!-- <meta name="description" content="About this app" /> -->
 </svelte:head>
 
 <div class="container">
@@ -87,16 +87,6 @@
     {/if}
   </form>
 </div>
-
-<!-- body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background-color: #f7f8fa;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    } -->
 <style>
   .container {
     display: flex;

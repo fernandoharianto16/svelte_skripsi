@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { createUserWithEmailAndPassword } from "firebase/auth";
-  import { auth } from "../../../firebase/firebase.js";
+  import { auth } from "../../../lib/firebase.js";
   import axios from "axios";
   let message = "";
 
@@ -110,7 +110,7 @@
     //Memanggil API addUsers dari Back-End
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/addUsers",
+        "http://localhost:3000/api/users",
         newUserData,
       );
       responseMessage = response.data.message;

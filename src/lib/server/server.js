@@ -2,136 +2,39 @@
 import express from 'express';
 import { handler } from '../../../build/handler.js';
 import cors from "cors";
-import admin from 'firebase-admin';
 
+import userRoutes from './user.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 // App menggunakan Express
 const app = express();
 
-// Middleware untuk mengizinkan CORS
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*'); // Atur origin ke '*' untuk mengizinkan akses dari semua sumber
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE'); // Atur metode yang diizinkan
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // Atur header yang diizinkan
-  next();
-});
+// Middleware CORS, app menggunakan setting CORS
+app.use(cors({
+  // origin: '*' → mengizinkan semua domain melakukan request ke server
+  origin: '*',
 
-// App menggunakan setting CORS
-app.use(cors());
+  // methods → daftar HTTP method yang diizinkan untuk request lintas-origin
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
+
+  // allowedHeaders → header yang diizinkan dikirim oleh client (misal dari frontend)
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Middleware untuk parsing JSON dan urlencoded
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// const serviceAccount = require('../../../serviceAccountKey.json');
-import serviceAccount from '../../../serviceAccountKey.cjs';
-
-// const serviceAccount = JSON.parse(readFileSync(resolve(__dirname, '../../../serviceAccountKey.json'), 'utf8'));
-
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
-const db = admin.firestore();
+app.use('/api/users', userRoutes);
 
 // Tambahkan endpoint API kustom di sini
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from Express!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' });
 });
 
-
-// Endpoint untuk mendapatkan data dari koleksi "users"
-app.get('/api/getUsers', async (req, res) => {
-  try {
-    /**
-     * @type {{ id: string; data: admin.firestore.DocumentData; }[]}
-     */
-    let users = [];
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.get();
-    if (snapshot.empty) {
-      console.log('Tidak ada dokumen yang ditemukan dalam koleksi "users".');
-      return res.status(404).send('Data tidak ditemukan');
-    }
-
-    snapshot.forEach(doc => {
-      users.push({
-        id: doc.id,
-        data: doc.data()
-      });
-    });
-
-    res.status(200).json({ data: users });
-  } catch (error) {
-    console.error('Gagal mengambil data:', error);
-    res.status(500).send('Terjadi kesalahan saat mengambil data');
-  }
-});
-
-// Endpoint untuk mencari pengguna berdasarkan email
-app.get('/api/getUserByEmail', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).send('Email tidak diberikan');
-    }
-    console.log(email);
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
-    if (snapshot.empty) {
-      console.log('Tidak ada pengguna yang ditemukan dengan email tersebut.');
-      return res.status(404).send('Pengguna tidak ditemukan');
-    }
-
-    let user = null;
-    snapshot.forEach(doc => {
-      user = {
-        id: doc.id,
-        data: doc.data()
-      };
-    });
-
-    res.status(200).json({ data: user });
-  } catch (error) {
-    console.error('Gagal mengambil data:', error);
-    res.status(500).send('Terjadi kesalahan saat mengambil data');
-  }
-});
-
-
-app.post('/api/addUsers', async (req, res) => {
-  try {
-
-    const { emailInput, passwordInput, roleSelected } = req.body;
-    console.log(req.body);
-    if (!emailInput || !passwordInput) {
-      return res.status(400).send('Email dan Password harus disertakan');
-    }
-    const username = emailInput.split('@')[0];
-    const newUser = {
-      email: emailInput,
-      nama: username,
-      role: roleSelected,
-      password: passwordInput,
-      poin: 0,
-      status: true,
-    };
-
-    const usersRef = db.collection('users');
-    const result = await usersRef.add(newUser);
-
-    res.status(201).json({ id: result.id, data: newUser });
-  } catch (error) {
-    console.error('Gagal menambahkan data:', error);
-    res.status(500).send('Terjadi kesalahan saat menambahkan data');
-  }
-});
-
-
 // SvelteKit handler
+// @ts-ignore
 app.use(handler); // Menyerahkan kontrol ke SvelteKit untuk rute yang tidak ditangani
 
 // Jalankan server
