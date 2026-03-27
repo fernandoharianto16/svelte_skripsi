@@ -1,5 +1,107 @@
 import admin from 'firebase-admin';
 import { db } from './firebaseAdmin.js';
-import { Router } from 'express';
 
+import { Router } from "express";
+import upload from "./multer.js";
+import multer from 'multer';
 const router = Router();
+
+/**
+ * POST /api/products
+ * create product
+ */
+router.post("/", upload.single("image"), async (req, res) => {
+
+  console.log("masuk ke backend add");
+  try {
+    console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
+    const { product_name, price, description } = req.body;
+    const image = req.file ? req.file.filename : null;
+    // Status isinya active atau archived atau deleted
+    const newProduct = {
+      product_name,
+      price: Number(price),
+      description,
+      image,
+      soldCount: 0,
+      status: "active",
+      user_id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const productsRef = db.collection('products');
+    const result = await productsRef.add(newProduct);
+    console.log("Product received:", newProduct);
+    res.status(201).json({
+      message: "Product created",
+      // id : result.id,
+      data: newProduct
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+});
+
+router.put("/:id", upload.single("image"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { product_name, price, description } = req.body;
+
+    const productsRef = db.collection("product").doc(id);
+    const doc = await productsRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    const oldData = doc.data();
+
+    // kalau ada file baru → pakai
+    // kalau tidak → tetap pakai yang lama
+    let image = oldData.image;
+
+    if (req.file) {
+      image = req.file.filename;
+    }
+
+    const updatedProduct = {
+      product_name,
+      price,
+      description,
+      image,
+      updatedAt: new Date(),
+    };
+
+    await productsRef.update(updatedProduct);
+
+    res.status(200).json({
+      message: "Product updated",
+      data: updatedProduct,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+// 2️⃣ Error handling Multer
+router.use((err, req, res, next) => {
+  console.log("Error middleware hit:", err); // DEBUG
+  if (err instanceof multer.MulterError) {
+    console.log("MulterError code:", err.code); // DEBUG
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ message: "Ukuran file terlalu besar, maksimal 1 MB" });
+    }
+    return res.status(400).json({ message: err.message });
+  }
+  next(err);
+});
+
+export default router;

@@ -3,9 +3,12 @@ import express from 'express';
 import { handler } from '../../../build/handler.js';
 import cors from "cors";
 
-import userRoutes from './user.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+
+// Route Web API yang ditambahkan atau digunakan
+import userRoutes from './user.js';
+import productRoutes from './products.js';
 
 // App menggunakan Express
 const app = express();
@@ -26,7 +29,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Mendeclare bahwa express menambahkan route URL dari route API berikut
 app.use('/api/users', userRoutes);
+app.use('/api/products', productRoutes);
 
 // Tambahkan endpoint API kustom di sini
 app.get('/api/hello', (req, res) => {

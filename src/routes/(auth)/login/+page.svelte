@@ -1,7 +1,7 @@
 <script>
   import { auth } from "../../../lib/firebase.js";
   import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-
+  import axios from "axios";
   let email = "";
   let password = "";
 
@@ -22,20 +22,39 @@
     if (Object.keys(errors).length === 0) {
       isLoading = true;
 
-      signInWithEmailAndPassword(auth, email, password)
-        .then((userCredential) => {
-          // Signed in
-          const user = userCredential.user;
-          console.log("Kamu Berhasil Login!",user);
-          isSuccess=true;
-          // ...
-          console.log(user.email);
-        })
-        .catch((error) => {
-          const errorCode = error.code;
-          const errorMessage = error.message;
-          console.log("Gagal Login!, Silahkan Coba Ulang", errorCode, errorMessage);
+      try {
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password,
+        );
+        const user = userCredential.user;
+
+        console.log("Kamu Berhasil Login!", user);
+        console.log("UID:", user.uid);
+
+        // WAJIB: ambil token
+        const token = await user.getIdToken();
+        console.log("TOKEN:", token);
+
+        // Simpan token (biar bisa dipakai request berikutnya)
+        localStorage.setItem("token", token);
+
+        // Ambil data user dari backend
+        const response = await axios.get("http://localhost:3000/api/users/me", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
+
+        console.log("Data user dari backend:", response.data);
+
+        isSuccess = true;
+      } catch (error) {
+        console.log("Error:", error.response?.data || error.message);
+      } finally {
+        isLoading = false;
+      }
     }
   };
 </script>
@@ -87,6 +106,7 @@
     {/if}
   </form>
 </div>
+
 <style>
   .container {
     display: flex;

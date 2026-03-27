@@ -46,10 +46,31 @@
         // Simulasi pengiriman data pendaftaran ke server
         const response = await new Promise((resolve, reject) => {
           // Lakukan validasi tambahan jika diperlukan
-          setTimeout(() => {
-            // MENAMBAHKAN USER KE FIREBASE DAN KE FIRESTORE USER BARU
-            addUser(email, password, role);
-            addAuthUser(email, password);
+          setTimeout(async () => {
+            // 1. Buat user di Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(
+              auth,
+              email,
+              password,
+            );
+            const user = userCredential.user;
+            // AMBIL TOKEN
+            const token = await user.getIdToken();
+            // MENAMBAHKAN USER KE FIRESTORE USER BARU
+            // 3. Kirim ke backend (termasuk password sementara)
+            await axios.post(
+              "http://localhost:3000/api/users",
+              {
+                emailInput:email,
+                passwordInput: password, // sementara
+                roleSelected: role,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            );
             const isSuccess = true;
 
             if (isSuccess) {
@@ -71,55 +92,54 @@
       }
     }
   };
-  /**
-   * @param {string} email
-   * @param {string} password
-   */
-  async function addAuthUser(email, password) {
-    // Tambahkan pengguna ke Firebase Authentication
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    )
-      .then((userCredential) => {
-        // Signed up
-        const user = userCredential.user;
-        console.log("User Auth added successfully to Firebase Auth!");
-        // ...
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.log(errorCode, errorMessage);
-      });
-    // const user = userCredential.user;
-  }
-
+  // /**
+  //  * @param {string} email
+  //  * @param {string} password
+  //  */
+  // async function addAuthUser(email, password) {
+  //   // Tambahkan pengguna ke Firebase Authentication
+  //   const userCredential = await createUserWithEmailAndPassword(
+  //     auth,
+  //     email,
+  //     password,
+  //   )
+  //     .then((userCredential) => {
+  //       // Signed up
+  //       const user = userCredential.user;
+  //       console.log("User Auth added successfully to Firebase Auth!");
+  //       // ...
+  //     })
+  //     .catch((error) => {
+  //       const errorCode = error.code;
+  //       const errorMessage = error.message;
+  //       console.log(errorCode, errorMessage);
+  //     });
+  // }
   //Menambah User
-  /**
-   * @param {string} email
-   * @param {string} password
-   */
-  async function addUser(email, password, role) {
-    newUserData = {
-      emailInput: email,
-      passwordInput: password,
-      roleSelected: role
-    };
-    //Memanggil API addUsers dari Back-End
-    try {
-      const response = await axios.post(
-        "http://localhost:3000/api/users",
-        newUserData,
-      );
-      responseMessage = response.data.message;
-      console.log("User added successfully:", response.data);
-    } catch (error) {
-      console.error("Error adding user:", error);
-      responseMessage = "Error adding user";
-    }
-  }
+  // /**
+  //  * @param {string} email
+  //  * @param {string} password
+  //  */
+
+  // async function addUser(email, password, role) {
+  //   newUserData = {
+  //     emailInput: email,
+  //     passwordInput: password,
+  //     roleSelected: role,
+  //   };
+  //   //Memanggil API addUsers dari Back-End
+  //   try {
+  //     const response = await axios.post(
+  //       "http://localhost:3000/api/users",
+  //       newUserData,
+  //     );
+  //     responseMessage = response.data.message;
+  //     console.log("User added successfully:", response.data);
+  //   } catch (error) {
+  //     console.error("Error adding user:", error);
+  //     responseMessage = "Error adding user";
+  //   }
+  // }
 </script>
 
 <svelte:head>
@@ -157,7 +177,12 @@
       </div>
 
       <label for="password">Password</label>
-      <input type="password" id="password" bind:value={password} autocomplete="new-password" />
+      <input
+        type="password"
+        id="password"
+        bind:value={password}
+        autocomplete="new-password"
+      />
 
       <label for="confirmPassword">Konfirmasi Password</label>
       <input

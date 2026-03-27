@@ -1,4 +1,5 @@
 <script>
+    import axios from "axios";
     let product_name = "";
     let price = "";
     let description = "";
@@ -8,6 +9,7 @@
     let priceDisplay = "";
     export let actionModal;
     export let product;
+    let imageError = "";
 
     if (actionModal === "edit" && product) {
         product_name = product.product_name;
@@ -16,6 +18,7 @@
 
     function handleImage(event) {
         imageFile = event.target.files[0];
+        imageError = "";
     }
 
     const categories = ["Accessories", "Fashion", "Decoration", "Toy"];
@@ -46,10 +49,13 @@
             let response;
 
             if (actionModal === "add") {
-                response = await axios.post("/api/products", formData);
+                response = await axios.post(
+                    "http://localhost:3000/api/products",
+                    formData,
+                );
             } else {
                 response = await axios.put(
-                    `/api/products/${product_id}`,
+                    `http://localhost:3000/api/products/${product_id}`,
                     formData,
                 );
             }
@@ -57,10 +63,19 @@
 
             dispatch("saved");
         } catch (error) {
-            console.error(error);
+            if (error.response) {
+                // Tangani error file terlalu besar
+                if (error.response.data.message.includes("terlalu besar")) {
+                    imageError = error.response.data.message; // <-- simpan ke state
+                } else {
+                    alert(error.response.data.message); // error lain
+                }
+            } else {
+                console.error("Axios error:", error);
+            }
         }
 
-        console.log(product, mode);
+        console.log(product, actionModal);
         // kirim event ke parent
         dispatch("saved", product);
     }
@@ -117,6 +132,9 @@
             accept="image/*"
             on:change={handleImage}
         />
+        {#if imageError}
+            <span class="error">{imageError}</span>
+        {/if}
     </div>
 
     <div class="field">
@@ -174,5 +192,10 @@
 
     button:hover {
         background: #1d4ed8;
+    }
+    .error {
+        color: red;
+        font-size: 12px;
+        margin-top: 2px;
     }
 </style>

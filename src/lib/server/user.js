@@ -1,7 +1,7 @@
 import admin from 'firebase-admin';
 import { db } from './firebaseAdmin.js';
 import { Router } from 'express';
-
+import { verifyToken } from './middleware/auth.js';
 const router = Router();
 
 // Endpoint untuk mencari pengguna berdasarkan email
@@ -67,17 +67,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-
-
-
-router.post('/', async (req, res) => {
+router.post('/',verifyToken, async (req, res) => {
     try {
-
+        const uid=req.user.uid;
         const { emailInput, passwordInput, roleSelected } = req.body;
-        console.log(req.body);
-        if (!emailInput || !passwordInput) {
-            return res.status(400).send('Email dan Password harus disertakan');
-        }
         const username = emailInput.split('@')[0];
         const newUser = {
             email: emailInput,
@@ -87,15 +80,28 @@ router.post('/', async (req, res) => {
             poin: 0,
             status: true,
         };
+        await db.collection('users').doc(uid).set(newUser);
 
-        const usersRef = db.collection('users');
-        const result = await usersRef.add(newUser);
+        // const usersRef = db.collection('users');
+        // const result = await usersRef.add(newUser);
 
-        res.status(201).json({ id: result.id, data: newUser });
+        res.status(201).json({ message:"User Created", data: newUser });
     } catch (error) {
         console.error('Gagal menambahkan data:', error);
         res.status(500).send('Terjadi kesalahan saat menambahkan data');
     }
+});
+
+router.get('/me', verifyToken, async (req, res) => {
+  const uid = req.user.uid;
+
+  const docSnap = await db.collection('users').doc(uid).get();
+
+  if (!docSnap.exists) {
+    return res.status(404).json({ message: "User tidak ditemukan" });
+  }
+
+  res.json(docSnap.data());
 });
 
 

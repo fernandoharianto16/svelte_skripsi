@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import ProductForm from "$lib/components/ProductForm.svelte";
+  export let params;
 
   let products = [
     {
@@ -48,7 +49,7 @@
   let showModal = false;
   let selectedProduct = null;
   let actionModal = "-";
-  
+
 
   function openAddModal() {
     mode = "add";
@@ -81,7 +82,7 @@
   function handleSaved(event) {
     const product = event.detail;
 
-    console.log("produk disimpan:", product);
+    console.log("ini log di parent frontend produk, disimpan:", product);
 
     // nanti disini bisa panggil API
     // await fetch('/api/addProduct')
@@ -90,9 +91,9 @@
     // closeModal();
   }
 
-  onMount(() => {
+  // onMount(() => {
     // fetchOrders();
-  });
+  // });
 </script>
 
 <div class="header">
