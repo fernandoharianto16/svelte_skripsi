@@ -8,6 +8,7 @@ import { resolve } from 'path';
 
 // Route Web API yang ditambahkan atau digunakan
 import userRoutes from './user.js';
+import sellerProductRoutes from './sellerProducts.js';
 import productRoutes from './products.js';
 
 // App menggunakan Express
@@ -31,7 +32,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Mendeclare bahwa express menambahkan route URL dari route API berikut
 app.use('/api/users', userRoutes);
-app.use('/api/products', productRoutes);
+app.use('/api/products',productRoutes);
+app.use('/api/seller/products', sellerProductRoutes);
 
 // Tambahkan endpoint API kustom di sini
 app.get('/api/hello', (req, res) => {

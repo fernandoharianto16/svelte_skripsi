@@ -50,7 +50,7 @@
 
             if (actionModal === "add") {
                 response = await axios.post(
-                    "http://localhost:3000/api/products",
+                    "http://localhost:3000/api/seller/products",
                     formData,
                 );
             } else {

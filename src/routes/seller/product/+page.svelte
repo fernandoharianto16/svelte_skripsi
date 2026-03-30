@@ -2,54 +2,49 @@
   import { onMount } from "svelte";
   import ProductForm from "$lib/components/ProductForm.svelte";
   export let params;
+  import axios from "axios";
+  import { auth } from "$lib/firebase";
+  import { onAuthStateChanged } from "firebase/auth";
 
-  let products = [
-    {
-      id: 1,
-      product_name: "Mouse Gaming RGB",
-      image: "",
-      price: 250000,
-      sold: 45,
-      archived: false,
-    },
-    {
-      id: 2,
-      product_name: "Keyboard Mechanical",
-      image: "",
-      price: 750000,
-      sold: 30,
-      archived: false,
-    },
-    {
-      id: 3,
-      product_name: "Headset Gaming",
-      image: "",
-      price: 500000,
-      sold: 18,
-      archived: false,
-    },
-    {
-      id: 4,
-      product_name: "Mousepad XL",
-      image: "",
-      price: 120000,
-      sold: 60,
-      archived: false,
-    },
-    {
-      id: 5,
-      product_name: "Webcam HD 1080p",
-      image: "",
-      price: 320000,
-      sold: 12,
-      archived: true,
-    },
-  ];
+  let products = [];
+  let loading = true;
+  let page = 1;
+  let totalPages = 1;
+
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  onMount(() => {
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        console.error("User belum login");
+        return;
+      }
+
+      try {
+        loading = true;
+
+        const token = await user.getIdToken();
+
+        const res = await axios.get(`${API_URL}/seller/products`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        products = res.data.data;
+        console.log("Products loaded:", products);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        loading = false;
+      }
+    });
+  });
+
   let mode = "-";
   let showModal = false;
   let selectedProduct = null;
   let actionModal = "-";
-
 
   function openAddModal() {
     mode = "add";
@@ -92,7 +87,7 @@
   }
 
   // onMount(() => {
-    // fetchOrders();
+  // fetchOrders();
   // });
 </script>
 
@@ -101,7 +96,7 @@
   <button class="add-btn" on:click={openAddModal}>+ Tambah Produk</button>
 </div>
 
-<table>
+<!-- <table>
   <thead>
     <tr>
       <th>No</th>
@@ -130,7 +125,68 @@
       </tr>
     {/each}
   </tbody>
-</table>
+</table> -->
+
+<h2>Produk Saya</h2>
+
+{#if loading}
+  <p>Loading...</p>
+{:else if products.length === 0}
+  <p>Tidak ada produk</p>
+{:else}
+  <table border="1" cellpadding="8">
+    <thead>
+      <tr>
+        <th>Gambar</th>
+        <th>Nama</th>
+        <th>Harga</th>
+        <th>Status</th>
+        <th>Jumlah Terjual</th>
+      </tr>
+    </thead>
+    <tbody>
+      {#each products as product}
+        <tr>
+          <td>
+            <img
+              src={`/uploads/${product.image}`}
+              alt={product.product_name}
+              width="80"
+            />
+          </td>
+          <td>{product.product_name}</td>
+          <td>{product.price}</td>
+          <td>{product.archived ? "Archived" : "Active"}</td>
+          <td>{product.soldCount}</td>
+        </tr>
+      {/each}
+    </tbody>
+  </table>
+{/if}
+
+<!-- <div style="margin-top: 10px;">
+  <button
+    on:click={() => {
+      page--;
+      fetchProducts();
+    }}
+    disabled={page === 1}
+  >
+    Prev
+  </button>
+
+  <span> Page {page} / {totalPages} </span>
+
+  <button
+    on:click={() => {
+      page++;
+      fetchProducts();
+    }}
+    disabled={page === totalPages}
+  >
+    Next
+  </button>
+</div> -->
 
 {#if showModal}
   <div class="modal-overlay">
@@ -144,10 +200,11 @@
       </div>
 
       <div class="modal-content">
-        <ProductForm 
-          actionModal={mode} 
+        <ProductForm
+          actionModal={mode}
           product={selectedProduct}
-          on:saved={handleSaved} />
+          on:saved={handleSaved}
+        />
       </div>
     </div>
   </div>
