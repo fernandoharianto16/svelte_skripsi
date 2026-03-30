@@ -6,14 +6,26 @@
     let archived = false;
     let category = "";
     let imageFile;
+    let imagePreview;
     let priceDisplay = "";
     export let actionModal;
     export let product;
     let imageError = "";
 
-    if (actionModal === "edit" && product) {
-        product_name = product.product_name;
-        price = product.price;
+    $: if (product && actionModal != "add") {
+        imagePreview = "/uploads/" + product.image;
+        console.log(imagePreview);
+        product_name = product.product_name || "";
+        category = product.category || "";
+        price = product.price || "";
+        description = product.description || "";
+
+        archived = product.archived || false;
+
+        // untuk display harga
+        priceDisplay = product.price
+            ? new Intl.NumberFormat("id-ID").format(product.price)
+            : "";
     }
 
     function handleImage(event) {
@@ -55,7 +67,7 @@
                 );
             } else {
                 response = await axios.put(
-                    `http://localhost:3000/api/products/${product_id}`,
+                    `http://localhost:3000/api/products/${product.id}`,
                     formData,
                 );
             }
@@ -102,6 +114,7 @@
             type="text"
             bind:value={product_name}
             required
+            disabled={actionModal === "detail"}
         />
     </div>
 
@@ -113,11 +126,17 @@
             bind:value={priceDisplay}
             on:input={formatPrice}
             required
+            disabled={actionModal === "detail"}
         />
     </div>
     <div class="field">
         <label for="category">Kategori</label>
-        <select id="category" bind:value={category} required>
+        <select
+            id="category"
+            bind:value={category}
+            required
+            disabled={actionModal === "detail"}
+        >
             {#each categories as cat}
                 <option value={cat}>{cat}</option>
             {/each}
@@ -131,7 +150,11 @@
             type="file"
             accept="image/*"
             on:change={handleImage}
+            disabled={actionModal === "detail"}
         />
+        {#if imagePreview}
+            <img src={imagePreview} alt="preview" class="preview" />
+        {/if}
         {#if imageError}
             <span class="error">{imageError}</span>
         {/if}
@@ -139,10 +162,19 @@
 
     <div class="field">
         <label for="description">Deskripsi</label>
-        <textarea id="description" rows="4" bind:value={description}></textarea>
+        <textarea
+            id="description"
+            rows="4"
+            bind:value={description}
+            disabled={actionModal === "detail"}
+        ></textarea>
     </div>
 
-    <button type="submit"> Simpan Produk </button>
+    {#if actionModal !== "detail"}
+        <button type="submit">
+            {actionModal === "edit" ? "Update Produk" : "Simpan Produk"}
+        </button>
+    {/if}
 </form>
 
 <style>
@@ -197,5 +229,8 @@
         color: red;
         font-size: 12px;
         margin-top: 2px;
+    }
+    .preview {
+        max-height: 200px;
     }
 </style>

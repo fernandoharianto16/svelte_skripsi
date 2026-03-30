@@ -19,12 +19,11 @@
         console.error("User belum login");
         return;
       }
-
+      // console.log(user);
       try {
         loading = true;
 
         const token = await user.getIdToken();
-
         const res = await axios.get(`${API_URL}/seller/products`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -44,7 +43,7 @@
   let mode = "-";
   let showModal = false;
   let selectedProduct = null;
-  let actionModal = "-";
+  // let actionModal = "-";
 
   function openAddModal() {
     mode = "add";
@@ -58,22 +57,18 @@
     showModal = true;
   }
 
+  function openDetailModal(product) {
+    mode = "detail";
+    console.log("modal detail dibuka");
+    selectedProduct=product;
+    console.log(selectedProduct);
+    showModal = true;
+  }
+
   function closeModal() {
     showModal = false;
   }
-  // let loading = false;
 
-  async function fetchOrders() {
-    // try {
-    // 	const res = await fetch('/api/orders/latest');
-    // 	const data = await res.json();
-    // 	orders = data.orders;
-    // } catch (err) {
-    // 	console.error(err);
-    // } finally {
-    // 	loading = false;
-    // }
-  }
   function handleSaved(event) {
     const product = event.detail;
 
@@ -96,37 +91,6 @@
   <button class="add-btn" on:click={openAddModal}>+ Tambah Produk</button>
 </div>
 
-<!-- <table>
-  <thead>
-    <tr>
-      <th>No</th>
-      <th>Nama Produk</th>
-      <th>Gambar</th>
-      <th>Harga</th>
-      <th>Jumlah Terjual</th>
-      <th>Diarsipkan</th>
-      <th>Action</th>
-    </tr>
-  </thead>
-
-  <tbody>
-    {#each products as product, index}
-      <tr>
-        <td>{index + 1}</td>
-        <td>{product.product_name}</td>
-        <td>{product.image}</td>
-        <td>Rp {product.price}</td>
-        <td>{product.sold}</td>
-        <td>{product.archived ? "Ya" : "Tidak"}</td>
-        <td>
-          <button>Edit</button>
-          <button>Hapus</button>
-        </td>
-      </tr>
-    {/each}
-  </tbody>
-</table> -->
-
 <h2>Produk Saya</h2>
 
 {#if loading}
@@ -142,6 +106,7 @@
         <th>Harga</th>
         <th>Status</th>
         <th>Jumlah Terjual</th>
+        <th>Action</th>
       </tr>
     </thead>
     <tbody>
@@ -157,43 +122,48 @@
           <td>{product.product_name}</td>
           <td>{product.price}</td>
           <td>{product.archived ? "Archived" : "Active"}</td>
-          <td>{product.soldCount}</td>
+          <td>{product.sold_count}</td>
+          <td class="action-cell">
+            <div class="action-wrapper">
+              <button
+                on:click={() => openDetailModal(product)}
+                aria-label="Lihat detail"
+              >
+                <i class="bi bi-eye"></i>
+              </button>
+
+              <button
+                on:click={() => goToEdit(product.id)}
+                aria-label="Edit produk"
+              >
+                <i class="bi bi-pencil"></i>
+              </button>
+
+              <button
+                on:click={() => deleteProduct(product.id)}
+                aria-label="Hapus produk"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
         </tr>
       {/each}
     </tbody>
   </table>
 {/if}
 
-<!-- <div style="margin-top: 10px;">
-  <button
-    on:click={() => {
-      page--;
-      fetchProducts();
-    }}
-    disabled={page === 1}
-  >
-    Prev
-  </button>
-
-  <span> Page {page} / {totalPages} </span>
-
-  <button
-    on:click={() => {
-      page++;
-      fetchProducts();
-    }}
-    disabled={page === totalPages}
-  >
-    Next
-  </button>
-</div> -->
-
 {#if showModal}
   <div class="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h1>Tambah Produk</h1>
-
+        {#if mode == "add"}
+          <h1>Tambah Produk</h1>
+        {:else if mode == "edit"}
+          <h1>Update Produk</h1>
+        {:else if mode == "detail"}
+          <h1>Detail Produk</h1>
+        {/if}
         <button class="button button-danger button-icon" on:click={closeModal}>
           ✕
         </button>
@@ -211,6 +181,85 @@
 {/if}
 
 <style>
+  .action-cell {
+    width: 150px; /* bikin kolom konsisten */
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .action-wrapper {
+    display: flex;
+    justify-content: space-evenly; /* isi penuh kolom */
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    gap: 6px;
+  }
+
+  .action-wrapper button {
+    flex: 1;
+    height: 42px;
+
+    border: none;
+    border-radius: 8px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .action-wrapper button i {
+    font-size: 25px;
+  }
+
+  /* efek hover biar enak dilihat */
+  .action-wrapper button:hover {
+    background-color: #f1f1f1;
+    border-radius: 6px;
+  }
+
+  /* warna icon */
+  .bi-eye {
+    color: #0d6efd;
+  }
+
+  .bi-pencil {
+    color: #ffc107;
+  }
+
+  .bi-trash {
+    color: #dc3545;
+  }
+  /* LIHAT */
+  .action-wrapper button:nth-child(1) {
+    background-color: #84b2f8;
+    color: white;
+  }
+  .action-wrapper button:nth-child(1):hover {
+    background-color: #ffffff;
+  }
+
+  /* EDIT */
+  .action-wrapper button:nth-child(2) {
+    background-color: #ffd895;
+    color: white;
+  }
+  .action-wrapper button:nth-child(2):hover {
+    background-color: #fafafa;
+  }
+
+  /* DELETE */
+  .action-wrapper button:nth-child(3) {
+    background-color: #ffb1b1;
+    color: white;
+  }
+  .action-wrapper button:nth-child(3):hover {
+    background-color: #ffffff;
+  }
+
   h1 {
     margin-bottom: 20px;
   }
@@ -234,18 +283,6 @@
   .add-btn:hover {
     background: #27ae60;
   }
-  /* .cards{
-		display:flex;
-		gap:20px;
-		margin-bottom:30px;
-	}
-
-	.card{
-		background:#f5f5f5;
-		padding:20px;
-		border-radius:8px;
-		width:200px;
-	} */
 
   .modal-overlay {
     position: fixed;
@@ -277,6 +314,8 @@
 
   .modal-content {
     margin-top: 10px;
+    max-height: 80vh;
+    overflow-y: auto;
   }
   .button {
     display: flex;

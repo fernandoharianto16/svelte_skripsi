@@ -89,7 +89,7 @@ router.get('/', verifyToken, async (req, res) => {
         // Hapus sementara orderBy untuk menghindari error index
         const snapshot = await productsRef
             .where('seller_id', '==', sellerId)
-            .orderBy('createdAt', 'desc')
+            .orderBy('created_at', 'desc')
             .get();
 
         const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -122,12 +122,13 @@ router.post("/", upload.single("image"), async (req, res) => {
         const newProduct = {
             product_name,
             price: Number(price),
+            category,
             description,
             image,
-            soldCount: 0,
+            sold_count: 0,
             status: "active",
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            created_at: new Date(),
+            updated_at: new Date(),
         };
         const productsRef = db.collection('products');
         const result = await productsRef.add(newProduct);
