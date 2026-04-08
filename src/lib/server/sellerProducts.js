@@ -86,7 +86,6 @@ router.get('/', verifyToken, async (req, res) => {
 
         const productsRef = admin.firestore().collection('products');
 
-        // Hapus sementara orderBy untuk menghindari error index
         const snapshot = await productsRef
             .where('seller_id', '==', sellerId)
             .orderBy('created_at', 'desc')
@@ -116,7 +115,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     try {
         console.log("BODY:", req.body);
         console.log("FILE:", req.file);
-        const { product_name, price, description } = req.body;
+        const { product_name, price, description, category } = req.body;
         const image = req.file ? req.file.filename : null;
         // Status isinya active atau archived atau deleted
         const newProduct = {
@@ -146,12 +145,12 @@ router.post("/", upload.single("image"), async (req, res) => {
     }
 });
 
-router.put("/:id", upload.single("image"), async (req, res) => {
+router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
     try {
         const { id } = req.params;
-        const { product_name, price, description } = req.body;
+        const { product_name, price, description, category } = req.body;
 
-        const productsRef = db.collection("product").doc(id);
+        const productsRef = db.collection("products").doc(id);
         const doc = await productsRef.get();
 
         if (!doc.exists) {
@@ -159,7 +158,11 @@ router.put("/:id", upload.single("image"), async (req, res) => {
         }
 
         const oldData = doc.data();
-
+        if (oldData.seller_id !== req.user.uid) {
+            return res.status(403).json({
+                message: "Forbidden: not your product"
+            });
+        }
         // kalau ada file baru → pakai
         // kalau tidak → tetap pakai yang lama
         let image = oldData.image;
@@ -172,6 +175,7 @@ router.put("/:id", upload.single("image"), async (req, res) => {
             product_name,
             price,
             description,
+            category,
             image,
             updatedAt: new Date(),
         };

@@ -51,17 +51,19 @@
     showModal = true;
   }
 
-  function openEditModal() {
+  function openEditModal(product) {
     mode = "edit";
     console.log("modal edit dibuka");
+    selectedProduct = product;
+    // console.log(selectedProduct);
     showModal = true;
   }
 
   function openDetailModal(product) {
     mode = "detail";
     console.log("modal detail dibuka");
-    selectedProduct=product;
-    console.log(selectedProduct);
+    selectedProduct = product;
+    // console.log(selectedProduct);
     showModal = true;
   }
 
@@ -133,7 +135,7 @@
               </button>
 
               <button
-                on:click={() => goToEdit(product.id)}
+                on:click={() => openEditModal(product)}
                 aria-label="Edit produk"
               >
                 <i class="bi bi-pencil"></i>
@@ -172,7 +174,7 @@
       <div class="modal-content">
         <ProductForm
           actionModal={mode}
-          product={selectedProduct}
+          selectedProduct={selectedProduct}
           on:saved={handleSaved}
         />
       </div>

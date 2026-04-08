@@ -1,5 +1,5 @@
 <script>
-    import axios from "axios";
+    import api from "$lib/api/axios.js";
     let product_name = "";
     let price = "";
     let description = "";
@@ -9,44 +9,46 @@
     let imagePreview;
     let priceDisplay = "";
     export let actionModal;
-    export let product;
+    export let selectedProduct;
     let imageError = "";
+    import ImageCropper from "$lib/components/ImageCropper.svelte";
+    const API_URL = import.meta.env.VITE_API_URL;
+    // import { auth } from "$lib/firebase";
+    // import { onAuthStateChanged } from "firebase/auth";
+    let isCropping=false;
 
-    $: if (product && actionModal != "add") {
-        imagePreview = "/uploads/" + product.image;
-        console.log(imagePreview);
-        product_name = product.product_name || "";
-        category = product.category || "";
-        price = product.price || "";
-        description = product.description || "";
+    if (selectedProduct && actionModal != "add") {
+        imagePreview = "/uploads/" + selectedProduct.image;
+        // console.log(imagePreview);
+        product_name = selectedProduct.product_name || "";
+        category = selectedProduct.category || "";
+        price = selectedProduct.price || "";
+        description = selectedProduct.description || "";
 
-        archived = product.archived || false;
+        archived = selectedProduct.archived || false;
 
         // untuk display harga
-        priceDisplay = product.price
-            ? new Intl.NumberFormat("id-ID").format(product.price)
+        priceDisplay = selectedProduct.price
+            ? new Intl.NumberFormat("id-ID").format(selectedProduct.price)
             : "";
     }
 
-    function handleImage(event) {
-        imageFile = event.target.files[0];
-        imageError = "";
-    }
-
-    const categories = ["Accessories", "Fashion", "Decoration", "Toy"];
+    const categories = ["Accessories", "Fashion", "Dekorasi", "Mainan"];
 
     import { createEventDispatcher } from "svelte";
 
     const dispatch = createEventDispatcher();
 
     async function submitForm() {
-        const product = {
-            product_name,
-            price,
-            category,
-            imageFile,
-            description,
-        };
+        // const updateProduct = {
+        //     id: selectedProduct,
+        //     product_name,
+        //     price,
+        //     category,
+        //     imageFile,
+        //     description,
+        // };
+
         const formData = new FormData();
 
         formData.append("product_name", product_name);
@@ -57,17 +59,16 @@
         if (imageFile) {
             formData.append("image", imageFile);
         }
+        console.log(formData);
+        console.log(imageFile);
         try {
             let response;
-
             if (actionModal === "add") {
-                response = await axios.post(
-                    "http://localhost:3000/api/seller/products",
-                    formData,
-                );
+                response = await api.post("/seller/products", formData);
             } else {
-                response = await axios.put(
-                    `http://localhost:3000/api/products/${product.id}`,
+                console.log(selectedProduct.id);
+                response = await api.put(
+                    `/seller/products/${selectedProduct.id}`,
                     formData,
                 );
             }
@@ -87,9 +88,9 @@
             }
         }
 
-        console.log(product, actionModal);
+        // console.log(product, actionModal);
         // kirim event ke parent
-        dispatch("saved", product);
+        // dispatch("saved", product);
     }
 
     function formatPrice(e) {
@@ -145,18 +146,23 @@
 
     <div class="field">
         <label for="image">Gambar Produk</label>
-        <input
-            id="image"
-            type="file"
-            accept="image/*"
-            on:change={handleImage}
-            disabled={actionModal === "detail"}
-        />
-        {#if imagePreview}
-            <img src={imagePreview} alt="preview" class="preview" />
+        {#if actionModal !== "detail"}
+            <ImageCropper
+                aspectRatio={NaN}
+                on:cropped={(e) => {
+                    imageFile = e.detail.file;
+                    imagePreview = e.detail.preview;
+                    console.log(isCropping);
+                }}
+                on:cropping={(e)=>{
+                    isCropping=e.detail;
+                    console.log(isCropping);
+                }}
+            />
         {/if}
-        {#if imageError}
-            <span class="error">{imageError}</span>
+
+        {#if imagePreview}
+            <img src={imagePreview} class="preview" />
         {/if}
     </div>
 
@@ -171,9 +177,14 @@
     </div>
 
     {#if actionModal !== "detail"}
-        <button type="submit">
+        <button type="submit" disabled={isCropping==true}>
             {actionModal === "edit" ? "Update Produk" : "Simpan Produk"}
         </button>
+    {/if}
+    {#if isCropping==true}
+        <p class="warning">
+            Selesaikan Crop Gambar Terlebih Dahulu
+        </p>
     {/if}
 </form>
 
@@ -225,12 +236,23 @@
     button:hover {
         background: #1d4ed8;
     }
-    .error {
+    
+    button:disabled{
+        opacity: 0.5;
+        cursor: not-allowed;;
+    }
+    
+    .error,.warning {
         color: red;
         font-size: 12px;
         margin-top: 2px;
     }
     .preview {
-        max-height: 200px;
+        display: block;
+        max-width: 100%;
+        max-height: 250px; /* batas tinggi */
+        width: auto;
+        height: auto;
+        object-fit: contain;
     }
 </style>
