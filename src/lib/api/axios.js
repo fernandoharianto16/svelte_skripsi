@@ -1,8 +1,9 @@
 import axios from "axios";
 import { auth } from "$lib/firebase";
+import { PUBLIC_API_URL } from "$env/static/public";
 
 const api = axios.create({
-    baseURL: "http://localhost:3000/api",
+    baseURL: PUBLIC_API_URL,
 });
 
 // 🔥 interceptor request

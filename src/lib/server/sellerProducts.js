@@ -8,77 +8,6 @@ const router = Router();
 
 import { verifyToken } from "./middleware/auth.js";
 
-
-
-// router.get('/seller/products', verifyToken, async (req, res) => {
-// 	try {
-// 		const page = parseInt(req.query.page) || 1;
-// 		const limit = parseInt(req.query.limit) || 10;
-// 		const skip = (page - 1) * limit;
-
-// 		const sellerId = req.user.uid; // dari Firebase
-
-// 		const products = await Product.find({ seller: sellerId })
-// 			.skip(skip)
-// 			.limit(limit)
-// 			.sort({ createdAt: -1 });
-
-// 		const total = await Product.countDocuments({ seller: sellerId });
-
-// 		res.json({
-// 			data: products,
-// 			pagination: {
-// 				page,
-// 				limit,
-// 				total,
-// 				totalPages: Math.ceil(total / limit)
-// 			}
-// 		});
-// 	} catch (err) {
-// 		res.status(500).json({ message: 'Server error' });
-// 	}
-// });
-
-// GET /api/products/seller/products?page=1&limit=10
-// router.get('/', verifyToken, async (req, res) => {
-//   try {
-//     const page = parseInt(req.query.page) || 1;
-//     const limit = parseInt(req.query.limit) || 10;
-
-//     const sellerId = req.user.uid;
-
-//     const productsRef = admin.firestore().collection('products');
-
-//     // pagination Firestore: startAt / startAfter but sederhana pakai offset skip
-//     const snapshot = await productsRef
-//       .where('seller', '==', sellerId)
-//       .orderBy('createdAt', 'desc')
-//       .offset((page - 1) * limit)
-//       .limit(limit)
-//       .get();
-
-//     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-//     // total produk seller
-//     const totalSnapshot = await productsRef.where('seller', '==', sellerId).get();
-//     const total = totalSnapshot.size;
-
-//     res.json({
-//       data: products,
-//       pagination: {
-//         page,
-//         limit,
-//         total,
-//         totalPages: Math.ceil(total / limit)
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: 'Server error' });
-//   }
-// });
-
 router.get('/', verifyToken, async (req, res) => {
     try {
         const sellerId = req.user.uid;
@@ -88,6 +17,7 @@ router.get('/', verifyToken, async (req, res) => {
 
         const snapshot = await productsRef
             .where('seller_id', '==', sellerId)
+            .where('status', '==', 'active')
             .orderBy('created_at', 'desc')
             .get();
 
@@ -109,41 +39,52 @@ router.get('/', verifyToken, async (req, res) => {
  * POST /api/products
  * create product
  */
-router.post("/", upload.single("image"), async (req, res) => {
-
+router.post("/", verifyToken, upload.single("image"), async (req, res) => {
     console.log("masuk ke backend add");
+
     try {
         console.log("BODY:", req.body);
         console.log("FILE:", req.file);
+
         const { product_name, price, description, category } = req.body;
+
+        // 🔥 ambil dari token
+        const seller_id = req.user.uid;
+
         const image = req.file ? req.file.filename : null;
-        // Status isinya active atau archived atau deleted
+
         const newProduct = {
             product_name,
             price: Number(price),
             category,
             description,
             image,
+            seller_id,
             sold_count: 0,
             status: "active",
             created_at: new Date(),
             updated_at: new Date(),
         };
-        const productsRef = db.collection('products');
+
+        const productsRef = db.collection("products");
         const result = await productsRef.add(newProduct);
+
         console.log("Product received:", newProduct);
+
         res.status(201).json({
             message: "Product created",
-            // id : result.id,
-            data: newProduct
+            id: result.id, // 🔥 tambahkan ini
+            data: newProduct,
         });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({
-            message: "Server error"
+            message: "Server error",
         });
     }
-});
+}
+);
 
 router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
     try {
@@ -192,6 +133,43 @@ router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
         res.status(500).json({
             message: "Server error",
         });
+    }
+});
+
+router.delete("/:id", verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.uid;
+        console.log(id);
+        console.log(userId);
+
+        const productRef = db.collection("products").doc(id);
+        const doc = await productRef.get();
+
+        if (!doc.exists) {
+            return res.status(404).json({ message: "Produk tidak ditemukan" });
+        }
+
+        const product = doc.data();
+
+        // 🔥 WAJIB: cek kepemilikan
+        if (product.seller_id !== userId) {
+            return res.status(403).json({ message: "Tidak punya akses" });
+        }
+
+        // optional: cegah double delete
+        if (product.status === "deleted") {
+            return res.status(400).json({ message: "Produk sudah dihapus" });
+        }
+
+        await productRef.update({
+            status: "deleted"
+        });
+
+        res.json({ message: "Produk berhasil dihapus" });
+
+    } catch (error) {
+        res.status(500).json({ message: "Terjadi kesalahan" });
     }
 });
 

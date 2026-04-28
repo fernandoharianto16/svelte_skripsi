@@ -2,16 +2,24 @@
   import { onMount } from "svelte";
   import ProductForm from "$lib/components/ProductForm.svelte";
   export let params;
-  import axios from "axios";
+  import api from "$lib/api/axios";
   import { auth } from "$lib/firebase";
   import { onAuthStateChanged } from "firebase/auth";
+  import Swal from "sweetalert2";
 
   let products = [];
   let loading = true;
-  let page = 1;
-  let totalPages = 1;
+  // let page = 1;
+  // let totalPages = 1;
+  // let products = [];
+  let currentPage = 1;
+  let pageSize = 5;
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  let search = "";
+  let sortField = null;
+  let sortOrder = "desc";
+
+  // const API_URL = import.meta.env.VITE_API_URL;
 
   onMount(() => {
     onAuthStateChanged(auth, async (user) => {
@@ -19,26 +27,25 @@
         console.error("User belum login");
         return;
       }
-      // console.log(user);
-      try {
-        loading = true;
 
-        const token = await user.getIdToken();
-        const res = await axios.get(`${API_URL}/seller/products`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        products = res.data.data;
-        console.log("Products loaded:", products);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        loading = false;
-      }
+      await loadProducts();
     });
   });
+
+  async function loadProducts() {
+    try {
+      loading = true;
+
+      const res = await api.get(`/seller/products`);
+      products = res.data.data;
+
+      console.log("Products loaded:", products);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      loading = false;
+    }
+  }
 
   let mode = "-";
   let showModal = false;
@@ -71,21 +78,109 @@
     showModal = false;
   }
 
-  function handleSaved(event) {
+  async function deleteProduct(id) {
+    // 🔹 ganti confirm
+    const result = await Swal.fire({
+      title: "Yakin ingin menghapus produk ini?",
+      text: "Data tidak bisa dikembalikan",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+      cancelButtonText: "Batal",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await api.delete(`/seller/products/${id}`);
+      const data = res.data;
+
+      // 🔥 update state
+      products = products.filter((p) => p.id !== id);
+
+      // 🔹 success alert
+      await Swal.fire({
+        icon: "success",
+        title: "Berhasil dihapus",
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 2000,
+      });
+    } catch (error) {
+      console.error(error);
+
+      // 🔹 error alert
+      await Swal.fire({
+        icon: "error",
+        title: "Gagal Menghapus",
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: 2000,
+      });
+    }
+  }
+
+  async function handleSaved(event) {
     const product = event.detail;
 
     console.log("ini log di parent frontend produk, disimpan:", product);
 
     // nanti disini bisa panggil API
-    // await fetch('/api/addProduct')
-
     // SETELAH MODAL SELESAI MENGIRIM DISPATCH SAVED MAKA INI AKAN DIJALANKAN
-    // closeModal();
+    closeModal();
+    await Swal.fire({
+      icon: "success",
+      title: "Product Berhasil Ditambahkan",
+      toast: true,
+      position: "top-end",
+      showConfirmButton: false,
+      timer: 2000,
+    });
+
+    loadProducts();
   }
 
-  // onMount(() => {
-  // fetchOrders();
-  // });
+  $: filteredProducts = products.filter((p) =>
+    p.product_name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  $: sortedProducts = [...filteredProducts].sort((a, b) => {
+    let valA = a[sortField];
+    let valB = b[sortField];
+
+    // handle undefined
+    if (valA == null) return 1;
+    if (valB == null) return -1;
+
+    if (sortOrder === "asc") {
+      return valA > valB ? 1 : -1;
+    } else {
+      return valA < valB ? 1 : -1;
+    }
+  });
+
+  $: paginatedProducts = sortedProducts.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  $: totalPages = Math.ceil(sortedProducts.length / pageSize);
+
+  $: if (search) currentPage = 1;
+
+  function handleSort(field) {
+    if (sortField === field) {
+      // 🔁 toggle asc ↔ desc
+      sortOrder = sortOrder === "asc" ? "desc" : "asc";
+    } else {
+      // 🔄 pindah kolom → reset ke asc
+      sortField = field;
+      sortOrder = "asc";
+    }
+  }
+
 </script>
 
 <div class="header">
@@ -93,8 +188,14 @@
   <button class="add-btn" on:click={openAddModal}>+ Tambah Produk</button>
 </div>
 
-<h2>Produk Saya</h2>
-
+<div class="search-box">
+  <i class="bi bi-search"></i>
+  <input
+    type="text"
+    placeholder="Cari produk..."
+    bind:value={search}
+  />
+</div>
 {#if loading}
   <p>Loading...</p>
 {:else if products.length === 0}
@@ -104,15 +205,44 @@
     <thead>
       <tr>
         <th>Gambar</th>
-        <th>Nama</th>
-        <th>Harga</th>
-        <th>Status</th>
-        <th>Jumlah Terjual</th>
+        <th on:click={() => handleSort("product_name")} style="cursor:pointer">
+          Nama
+          <i
+            class="bi"
+            class:bi-arrow-up={sortField === "product_name" &&
+              sortOrder === "asc"}
+            class:bi-arrow-down={sortField === "product_name" &&
+              sortOrder === "desc"}
+            class:bi-arrow-down-up={sortField !== "product_name"}
+          ></i>
+        </th>
+
+        <th on:click={() => handleSort("price")} style="cursor:pointer">
+          Harga
+          <i
+            class="bi"
+            class:bi-arrow-up={sortField === "price" && sortOrder === "asc"}
+            class:bi-arrow-down={sortField === "price" && sortOrder === "desc"}
+            class:bi-arrow-down-up={sortField !== "price"}
+          ></i>
+        </th>
+
+        <th on:click={() => handleSort("sold_count")} style="cursor:pointer">
+          Jumlah Terjual
+          <i
+            class="bi"
+            class:bi-arrow-up={sortField === "sold_count" &&
+              sortOrder === "asc"}
+            class:bi-arrow-down={sortField === "sold_count" &&
+              sortOrder === "desc"}
+            class:bi-arrow-down-up={sortField !== "sold_count"}
+          ></i>
+        </th>
         <th>Action</th>
       </tr>
     </thead>
     <tbody>
-      {#each products as product}
+      {#each paginatedProducts as product}
         <tr>
           <td>
             <img
@@ -123,7 +253,7 @@
           </td>
           <td>{product.product_name}</td>
           <td>{product.price}</td>
-          <td>{product.archived ? "Archived" : "Active"}</td>
+          <!-- <td>{product.archived ? "Archived" : "Active"}</td> -->
           <td>{product.sold_count}</td>
           <td class="action-cell">
             <div class="action-wrapper">
@@ -153,6 +283,20 @@
       {/each}
     </tbody>
   </table>
+  <div style="margin-top: 10px;">
+    <button on:click={() => currentPage--} disabled={currentPage === 1}>
+      Back
+    </button>
+
+    <span> {currentPage} / {totalPages} </span>
+
+    <button
+      on:click={() => currentPage++}
+      disabled={currentPage === totalPages}
+    >
+      Next
+    </button>
+  </div>
 {/if}
 
 {#if showModal}
@@ -174,7 +318,7 @@
       <div class="modal-content">
         <ProductForm
           actionModal={mode}
-          selectedProduct={selectedProduct}
+          {selectedProduct}
           on:saved={handleSaved}
         />
       </div>
@@ -362,7 +506,45 @@
     text-align: left;
   }
 
+  th i {
+    margin-left: 6px;
+    font-size: 0.8rem;
+  }
+
   th {
     background: #f0f0f0;
+    user-select: none;
   }
+  .search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  width: 300px;
+  padding: 8px 12px;
+
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+
+  transition: all 0.2s ease;
+  margin-bottom: 10px;
+}
+
+.search-box i {
+  color: #888;
+  font-size: 14px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 14px;
+}
+
+.search-box:focus-within {
+  border-color: #2ecc71;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.2);
+}
 </style>

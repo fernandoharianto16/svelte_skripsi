@@ -10,6 +10,7 @@ import { resolve } from 'path';
 import userRoutes from './user.js';
 import sellerProductRoutes from './sellerProducts.js';
 import productRoutes from './products.js';
+import publicProductRoutes from'./publicProducts.js';
 
 // App menggunakan Express
 const app = express();
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/users', userRoutes);
 app.use('/api/products',productRoutes);
 app.use('/api/seller/products', sellerProductRoutes);
+app.use('/api/products',publicProductRoutes);
 
 // Tambahkan endpoint API kustom di sini
 app.get('/api/hello', (req, res) => {
