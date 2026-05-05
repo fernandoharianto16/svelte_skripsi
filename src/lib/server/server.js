@@ -1,6 +1,6 @@
 // lib/server/server.js
 import express from 'express';
-import { handler } from '../../../build/handler.js';
+// import { handler } from '../../../build/handler.js';
 import cors from "cors";
 
 import { readFileSync } from 'fs';
@@ -42,9 +42,13 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from Express!aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' });
 });
 
+app.get('/', (req, res) => {
+  res.send('API is running');
+});
+
 // SvelteKit handler
 // @ts-ignore
-app.use(handler); // Menyerahkan kontrol ke SvelteKit untuk rute yang tidak ditangani
+// app.use(handler); // Menyerahkan kontrol ke SvelteKit untuk rute yang tidak ditangani
 
 // Jalankan server
 const port = process.env.PORT || 3000;
