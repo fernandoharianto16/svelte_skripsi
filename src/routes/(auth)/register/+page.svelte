@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { createUserWithEmailAndPassword } from "firebase/auth";
   import { auth } from "../../../lib/firebase.js";
-  import axios from "axios";
+  import api from "$lib/api/axios";
   let message = "";
 
   let email = "";
@@ -25,14 +25,15 @@
   const handleSubmit = async () => {
     // console.log(email,password, role);
     errors = {};
-
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (email.length === 0) {
       errors.email = "Field email tidak boleh kosong";
+    } else if (!emailRegex.test(email)) {
+      errors.email = "Format email tidak valid (contoh: user@mail.com)";
     }
     if (password.length === 0) {
       errors.password = "Field password tidak boleh kosong";
-    }
-    if (password.length < 8) {
+    } else if (password.length < 8) {
       errors.password = "Password tidak boleh kurang dari 8 digit karakter";
     }
     if (password !== confirmPassword) {
@@ -53,28 +54,30 @@
               email,
               password,
             );
-            const user = userCredential.user;
+            // const user = userCredential.user;
             // AMBIL TOKEN
-            const token = await user.getIdToken();
+            // const token = await user.getIdToken();
             // MENAMBAHKAN USER KE FIRESTORE USER BARU
             // 3. Kirim ke backend (termasuk password sementara)
-            await axios.post(
-              "http://localhost:3000/api/users",
-              {
-                emailInput:email,
-                passwordInput: password, // sementara
-                roleSelected: role,
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              },
-            );
+            await api.post("/api/users", {
+              emailInput: email,
+              passwordInput: password,
+              roleSelected: role,
+            });
+            // xios.post(
+            //   {
+            //     emailInput:email,
+            //     passwordInput: password, // sementara
+            //     roleSelected: role,
+            //   },
+            //   {
+            //     headers: {
+            //       Authorization: `Bearer ${token}`,
+            //     },
+            //   },
+            // );
             const isSuccess = true;
-
             if (isSuccess) {
-              // console.log("masuk sini");
               resolve({ message: "Registrasi sukses!" });
             } else {
               reject("Registrasi gagal. Silahkan input ulang.");
@@ -92,54 +95,8 @@
       }
     }
   };
-  // /**
-  //  * @param {string} email
-  //  * @param {string} password
-  //  */
-  // async function addAuthUser(email, password) {
-  //   // Tambahkan pengguna ke Firebase Authentication
-  //   const userCredential = await createUserWithEmailAndPassword(
-  //     auth,
-  //     email,
-  //     password,
-  //   )
-  //     .then((userCredential) => {
-  //       // Signed up
-  //       const user = userCredential.user;
-  //       console.log("User Auth added successfully to Firebase Auth!");
-  //       // ...
-  //     })
-  //     .catch((error) => {
-  //       const errorCode = error.code;
-  //       const errorMessage = error.message;
-  //       console.log(errorCode, errorMessage);
-  //     });
-  // }
-  //Menambah User
-  // /**
-  //  * @param {string} email
-  //  * @param {string} password
-  //  */
 
-  // async function addUser(email, password, role) {
-  //   newUserData = {
-  //     emailInput: email,
-  //     passwordInput: password,
-  //     roleSelected: role,
-  //   };
-  //   //Memanggil API addUsers dari Back-End
-  //   try {
-  //     const response = await axios.post(
-  //       "http://localhost:3000/api/users",
-  //       newUserData,
-  //     );
-  //     responseMessage = response.data.message;
-  //     console.log("User added successfully:", response.data);
-  //   } catch (error) {
-  //     console.error("Error adding user:", error);
-  //     responseMessage = "Error adding user";
-  //   }
-  // }
+
 </script>
 
 <svelte:head>
@@ -148,7 +105,7 @@
 </svelte:head>
 
 <div class="container">
-  <form on:submit|preventDefault={handleSubmit}>
+  <form novalidate on:submit|preventDefault={handleSubmit}>
     {#if isSuccess}
       <div class="success">✅ Registration Successful!</div>
     {:else}
@@ -159,6 +116,7 @@
         type="email"
         id="email"
         bind:value={email}
+        class={errors.email ? "is-invalid" : ""}
         placeholder="name@example.com"
         autocomplete="email"
       />

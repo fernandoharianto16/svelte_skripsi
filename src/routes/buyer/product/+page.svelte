@@ -1,11 +1,51 @@
 <script>
   import { onMount } from "svelte";
   import api from "$lib/api/axios";
-  import ProductCard from "$lib/components/ProductCard.svelte";
+  import ProductCard from "../../../lib/components/ProductCard.svelte";
   
   let searchQuery = "";
   let selectedCategory = "";
   const categories = ["Accessories", "Fashion", "Dekorasi", "Mainan"];
+
+  import { goto } from "$app/navigation";
+  import { auth } from "$lib/firebase"; 
+  import { signOut } from "firebase/auth";
+  let showDropdown = false;
+
+  function toggleDropdown() {
+    showDropdown = !showDropdown;
+  }
+
+  async function handleLogout() {
+  try {
+    // 1. Proses logout dari Firebase
+    await signOut(auth);
+    showDropdown = false;
+
+    // 2. Tampilkan notifikasi SweetAlert2
+    await Swal.fire({
+      title: "Berhasil Logout",
+      text: "Anda telah keluar dari akun dengan aman.",
+      icon: "success",
+      timer: 2000, // Notifikasi otomatis tertutup dalam 2 detik
+      timerProgressBar: true,
+      showConfirmButton: false // Menghilangkan tombol OK agar terlihat lebih seamless
+    });
+
+    // 3. Pindah ke halaman login setelah notifikasi selesai/tertutup
+    goto("/login");
+
+  } catch (error) {
+    console.error("Gagal logout:", error);
+    
+    // Jaga-jaga jika proses logout Firebase gagal
+    Swal.fire({
+      title: "Gagal Logout",
+      text: "Terjadi kesalahan pada server, silakan coba lagi.",
+      icon: "error"
+    });
+  }
+}
 
   let products = [];
   let isLoading = true;
@@ -14,7 +54,7 @@
   async function loadProducts() {
     try {
       isLoading = true;
-      const res = await api.get(`/products`);
+      const res = await api.get(`/buyer/products`);
       products = res.data.data;
       console.log("Struktur data produk:", products[0]);
     } catch (err) {
@@ -56,6 +96,22 @@
       bind:value={searchQuery}
       placeholder="Cari produk berdasarkan nama..."
     />
+    <!-- <div class="profile-menu">
+      <button class="profile-icon" on:click={toggleDropdown} aria-label="Menu profil">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
+
+      {#if showDropdown}
+        <div class="dropdown-content">
+          <a href="/profil">Profil Saya</a>
+          <a href="/buyer/orders/">Pesanan Saya</a>
+          <button on:click={handleLogout} class="logout-btn">Logout</button>
+        </div>
+      {/if}
+    </div> -->
   </div>
 
   <div class="categories">
@@ -84,7 +140,7 @@
     {:else}
       <div class="product-grid">
         {#each filteredProducts as product (product.id || product._id)}
-          <a href="/detail/{product.id}" class="product-link">
+          <a href="/buyer/product/{product.id}" class="product-link">
             <ProductCard
               image={product.image_url || product.image}
               title={product.product_name}

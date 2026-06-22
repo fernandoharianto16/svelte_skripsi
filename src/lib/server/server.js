@@ -7,11 +7,25 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 // Route Web API yang ditambahkan atau digunakan
+// import userRoutes from './buyerProducts.js';
 import userRoutes from './user.js';
 import sellerProductRoutes from './sellerProducts.js';
-import productRoutes from './products.js';
+import sellerOrderRoutes from './sellerOrders.js';
+import sellerNegoRoutes from './sellerNegotiation.js';
+import sellerCustomRequestRoutes from './sellerCustomRequest.js';
+
+import buyerProductRoutes from './buyerProducts.js';
+import buyerOrderRoutes from './buyerOrders.js';
+import buyerNegoRoutes from './buyerNegotiation.js';
+import buyerCustomRequestRoutes from './buyerCustomRequest.js';
+
 import publicProductRoutes from'./publicProducts.js';
 
+// import chatbotRoutes from './chatbot.js';
+import paymentRoutes from './payments.js';
+
+
+import initOrderCron from './jobs/orderCron.js';
 // App menggunakan Express
 const app = express();
 
@@ -19,10 +33,8 @@ const app = express();
 app.use(cors({
   // origin: '*' → mengizinkan semua domain melakukan request ke server
   origin: '*',
-
   // methods → daftar HTTP method yang diizinkan untuk request lintas-origin
   methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
-
   // allowedHeaders → header yang diizinkan dikirim oleh client (misal dari frontend)
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -33,9 +45,19 @@ app.use(express.urlencoded({ extended: true }));
 
 // Mendeclare bahwa express menambahkan route URL dari route API berikut
 app.use('/api/users', userRoutes);
-app.use('/api/products',productRoutes);
 app.use('/api/seller/products', sellerProductRoutes);
+app.use('/api/seller/orders', sellerOrderRoutes);
+app.use('/api/seller/negotiations', sellerNegoRoutes);
+app.use('/api/seller/custom_request',sellerCustomRequestRoutes);
+
+app.use('/api/buyer/products', buyerProductRoutes);
+app.use('/api/buyer/orders', buyerOrderRoutes);
+app.use('/api/buyer/negotiations', buyerNegoRoutes);
+app.use('/api/buyer/custom_request',buyerCustomRequestRoutes);
+
 app.use('/api/products',publicProductRoutes);
+// app.use('/api/chatbot',chatbotRoutes);
+app.use('/api/payments',paymentRoutes);
 
 // Tambahkan endpoint API kustom di sini
 app.get('/api/hello', (req, res) => {
@@ -46,14 +68,12 @@ app.get('/', (req, res) => {
   res.send('API is running');
 });
 
-// SvelteKit handler
-// @ts-ignore
-// app.use(handler); // Menyerahkan kontrol ke SvelteKit untuk rute yang tidak ditangani
-
 // Jalankan server
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
+  initOrderCron();
+  console.log('Sistem Cron Job Pembatalan Firestore Aktif.');
 });
 
 export default app;

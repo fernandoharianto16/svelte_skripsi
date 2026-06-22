@@ -1,7 +1,9 @@
 <script>
   import { auth } from "../../../lib/firebase.js";
   import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-  import axios from "axios";
+  import api from "$lib/api/axios";
+  import { goto } from "$app/navigation";
+
   let email = "";
   let password = "";
 
@@ -11,17 +13,14 @@
 
   const handleSubmit = async () => {
     errors = {};
-
     if (email.length === 0) {
-      errors.email = "Field should not be empty";
+      errors.email = "Field tidak boleh kosong";
     }
     if (password.length === 0) {
-      errors.password = "Field should not be empty";
+      errors.password = "Field tidak boleh kosong";
     }
-
     if (Object.keys(errors).length === 0) {
       isLoading = true;
-
       try {
         const userCredential = await signInWithEmailAndPassword(
           auth,
@@ -29,29 +28,46 @@
           password,
         );
         const user = userCredential.user;
+        const userLogin = await api.get("/users/me");
+        console.log(userLogin);
+        if (userLogin.data.role == "buyer") {
+          await goto('/buyer/product');
+        } else if (userLogin.data.role == "seller") {
+          await goto('/seller/product');
+        }
 
-        console.log("Kamu Berhasil Login!", user);
-        console.log("UID:", user.uid);
+        // const user = userCredential.user;
+        // const token = await user.getIdToken();
+        // console.log("Kamu Berhasil Login!", user);
+        // console.log("UID:", user.uid);
 
         // WAJIB: ambil token
-        const token = await user.getIdToken();
-        console.log("TOKEN:", token);
+        // const token = await user.getIdToken();
+        // console.log("TOKEN:", token);
 
         // Simpan token (biar bisa dipakai request berikutnya)
-        localStorage.setItem("token", token);
+        // localStorage.setItem("token", token);
 
         // Ambil data user dari backend
-        const response = await axios.get("http://localhost:3000/api/users/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
 
-        console.log("Data user dari backend:", response.data);
+        //   headers: {
+        //     Authorization: `Bearer ${token}`,
+        //   },
+        // });
+
+        // console.log("Data user dari backend:", response.data);
 
         isSuccess = true;
       } catch (error) {
-        console.log("Error:", error.response?.data || error.message);
+        if (
+          error.code === "auth/invalid-credential" ||
+          error.code === "auth/user-not-found" ||
+          error.code === "auth/wrong-password"
+        ) {
+          errors.error = "Email atau password salah.";
+        } else {
+          errors.error = "Terjadi kesalahan, silakan coba lagi.";
+        }
       } finally {
         isLoading = false;
       }

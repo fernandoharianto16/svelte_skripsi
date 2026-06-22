@@ -18,20 +18,19 @@ router.get('/', verifyToken, async (req, res) => {
         const sellerId = req.user.uid;
         // console.log(sellerId);
 
-        const productsRef = admin.firestore().collection('products');
+        const ordersRef = admin.firestore().collection('orders');
 
-        const snapshot = await productsRef
+        const snapshot = await ordersRef
             .where('seller_id', '==', sellerId)
-            .where('status', '==', 'active')
             .orderBy('created_at', 'desc')
             .get();
 
-        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // console.log(products);
+        const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // console.log(orders);
 
         res.json({
-            data: products,
-            total: products.length
+            data: orders,
+            total: orders.length
         });
     } catch (error) {
         console.error("--- DEBUG ERROR ---");
@@ -46,20 +45,64 @@ router.get('/', verifyToken, async (req, res) => {
     }
 });
 
+router.get('/:id', verifyToken, async (req, res) => {
+    try {
+        const orderDoc = await db.collection('orders').doc(req.params.id).get();
+        if (!orderDoc.exists) return res.status(404).json({ message: "Pesanan tidak ditemukan" });
 
-/**
- * POST /api/products
- * create product
- */
+        const orderData = orderDoc.data();
+        if (orderData.seller_id !== req.user.uid) return res.status(403).json({ message: "Akses ditolak" });
+
+        const detailsSnapshot = await db.collection('order_details').where('order_id', '==', req.params.id).get();
+        const orderDetails = [];
+        detailsSnapshot.forEach(doc => orderDetails.push(doc.data()));
+
+        return res.status(200).json({ order: orderData, details: orderDetails });
+    } catch (err) {
+        return res.status(500).json({ message: "Gagal mengambil data" });
+    }
+});
 
 
+router.patch('/:orderId/status', verifyToken, async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { status } = req.body; // Status baru (misal: 'processing', 'shipped', 'cancelled')
+        const sellerId = req.user.uid; // Pastikan user yang login adalah penjual yang sah
+        // 1. Referensi ke dokumen order
+        const orderRef = db.collection('orders').doc(orderId);
+        const orderDoc = await orderRef.get();
+        // 2. Cek apakah pesanan ada
+        if (!orderDoc.exists) {
+            return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+        }
+        // 3. Keamanan: Pastikan hanya penjual pemilik pesanan yang bisa mengubah status
+        if (orderDoc.data().seller_id !== sellerId) {
+            return res.status(403).json({ message: "Anda tidak memiliki akses ke pesanan ini" });
+        }
+        // 4. Update status di Firestore
+        await orderRef.update({
+            order_status: status,
+            updated_at: new Date().toISOString()
+        });
+        res.status(200).json({ 
+            message: "Status pesanan berhasil diperbarui",
+            new_status: status 
+        });
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+//ADD PRODUCT
 router.post("/", verifyToken, upload.single("image"), async (req, res) => {
     try {
         const { product_name, price, description, category } = req.body;
         const seller_id = req.user.uid;
         let imageUrl = null;
         if (req.file) {
-            imageUrl = await uploadToCloudinary(req.file.buffer, "products_images");
+            imageUrl = await uploadToCloudinary(req.file.buffer, "orders_images");
         }
 
         const newProduct = {
@@ -75,7 +118,7 @@ router.post("/", verifyToken, upload.single("image"), async (req, res) => {
             updated_at: new Date(),
         };
 
-        const result = await db.collection("products").add(newProduct);
+        const result = await db.collection("orders").add(newProduct);
 
         res.status(201).json({
             message: "Product created",
@@ -91,64 +134,46 @@ router.post("/", verifyToken, upload.single("image"), async (req, res) => {
         });
     }
 });
+router.post("/ship/:orderId", verifyToken, upload.single("image"), async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        let imageUrl = null;
 
-// router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { product_name, price, description, category } = req.body;
+        if (req.file) {
+            // Upload ke Cloudinary dengan folder 'shipment_proofs'
+            imageUrl = await uploadToCloudinary(req.file.buffer, "shipment_proofs");
+        } else {
+            return res.status(400).json({ message: "Bukti gambar wajib diunggah" });
+        }
 
-//         const productsRef = db.collection("products").doc(id);
-//         const doc = await productsRef.get();
+        // Update Firestore
+        await db.collection("orders").doc(orderId).update({
+            order_status: "shipped",
+            shipment_proof: imageUrl, // Menyimpan URL Cloudinary
+            shipped_at: new Date()
+        });
 
-//         if (!doc.exists) {
-//             return res.status(404).json({ message: "Product not found" });
-//         }
+        res.status(200).json({ 
+            message: "Bukti pengiriman berhasil diunggah",
+            shipment_proof: imageUrl 
+        });
 
-//         const oldData = doc.data();
-//         if (oldData.seller_id !== req.user.uid) {
-//             return res.status(403).json({
-//                 message: "Forbidden: not your product"
-//             });
-//         }
-//         // kalau ada file baru → pakai
-//         // kalau tidak → tetap pakai yang lama
-//         let image = oldData.image;
-
-//         if (req.file) {
-//             image = req.file.filename;
-//         }
-
-//         const updatedProduct = {
-//             product_name,
-//             price,
-//             description,
-//             category,
-//             image,
-//             updatedAt: new Date(),
-//         };
-
-//         await productsRef.update(updatedProduct);
-
-//         res.status(200).json({
-//             message: "Product updated",
-//             data: updatedProduct,
-//         });
-
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({
-//             message: "Server error",
-//         });
-//     }
-// });
+    } catch (error) {
+        console.error("Gagal mengunggah bukti pengiriman:", error);
+        res.status(500).json({ 
+            message: "Server error", 
+            error: error.message 
+        });
+    }
+});
 
 router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
     try {
         const { id } = req.params;
         const { product_name, price, description, category } = req.body;
 
-        const productsRef = db.collection("products").doc(id);
-        const doc = await productsRef.get();
+        const ordersRef = db.collection("orders").doc(id);
+        const doc = await ordersRef.get();
 
         if (!doc.exists) {
             return res.status(404).json({ message: "Product not found" });
@@ -164,7 +189,7 @@ router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
         // Jika ada file baru, upload ke Cloudinary dan ambil URL-nya
         let image = oldData.image;
         if (req.file) {
-            image = await uploadToCloudinary(req.file.buffer, "products_images");
+            image = await uploadToCloudinary(req.file.buffer, "orders_images");
         }
 
         const updatedProduct = {
@@ -176,7 +201,7 @@ router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
             updatedAt: new Date(),
         };
 
-        await productsRef.update(updatedProduct);
+        await ordersRef.update(updatedProduct);
 
         res.status(200).json({
             message: "Product updated",
@@ -199,7 +224,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
         // console.log(id);
         // console.log(userId);
 
-        const productRef = db.collection("products").doc(id);
+        const productRef = db.collection("orders").doc(id);
         const doc = await productRef.get();
 
         if (!doc.exists) {

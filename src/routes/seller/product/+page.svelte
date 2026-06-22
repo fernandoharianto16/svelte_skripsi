@@ -1,11 +1,12 @@
 <script>
   import { onMount } from "svelte";
   import ProductForm from "$lib/components/ProductForm.svelte";
-  export let params;
+  // export let params;
   import api from "$lib/api/axios";
   import { auth } from "$lib/firebase";
   import { onAuthStateChanged } from "firebase/auth";
   import Swal from "sweetalert2";
+  import { goto } from "$app/navigation";
 
   let products = [];
   let loading = true;
@@ -36,6 +37,7 @@
     try {
       loading = true;
 
+      // const token = 
       const res = await api.get(`/seller/products`);
       products = res.data.data;
 
@@ -180,21 +182,26 @@
       sortOrder = "asc";
     }
   }
-
+  function goToOrders() {
+    goto('/seller/orders'); 
+  }
 </script>
 
 <div class="header">
   <h1>Produk Saya</h1>
-  <button class="add-btn" on:click={openAddModal}>+ Tambah Produk</button>
+  <div class="button-group">
+    <button class="order-btn" on:click={goToOrders}>
+      <i class="bi bi-list-check"></i> Daftar Pesanan
+    </button>
+    <button class="add-btn" on:click={openAddModal}>
+      <i class="bi bi-plus-lg"></i> Tambah Produk
+    </button>
+  </div>
 </div>
 
 <div class="search-box">
   <i class="bi bi-search"></i>
-  <input
-    type="text"
-    placeholder="Cari produk..."
-    bind:value={search}
-  />
+  <input type="text" placeholder="Cari produk..." bind:value={search} />
 </div>
 {#if loading}
   <p>Loading...</p>
@@ -246,7 +253,7 @@
         <tr>
           <td>
             <img
-              src={`/uploads/${product.image}`}
+              src={`${product.image}`}
               alt={product.product_name}
               width="80"
             />
@@ -417,13 +424,34 @@
     margin-bottom: 20px;
   }
 
+  .button-group {
+    display: flex;
+    gap: 12px;
+  }
+
+  .order-btn {
+    padding: 8px 16px;
+    background: #f8f9fa; /* Warna netral */
+    color: #495057;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .order-btn:hover {
+    background: #e9ecef;
+  }
+
   .add-btn {
-    padding: 8px 14px;
+    padding: 8px 16px;
     background: #2ecc71;
     color: white;
     border: none;
     border-radius: 6px;
     cursor: pointer;
+    font-weight: 500;
   }
 
   .add-btn:hover {
@@ -516,35 +544,35 @@
     user-select: none;
   }
   .search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 
-  width: 300px;
-  padding: 8px 12px;
+    width: 300px;
+    padding: 8px 12px;
 
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
 
-  transition: all 0.2s ease;
-  margin-bottom: 10px;
-}
+    transition: all 0.2s ease;
+    margin-bottom: 10px;
+  }
 
-.search-box i {
-  color: #888;
-  font-size: 14px;
-}
+  .search-box i {
+    color: #888;
+    font-size: 14px;
+  }
 
-.search-box input {
-  border: none;
-  outline: none;
-  flex: 1;
-  font-size: 14px;
-}
+  .search-box input {
+    border: none;
+    outline: none;
+    flex: 1;
+    font-size: 14px;
+  }
 
-.search-box:focus-within {
-  border-color: #2ecc71;
-  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.2);
-}
+  .search-box:focus-within {
+    border-color: #2ecc71;
+    box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.2);
+  }
 </style>

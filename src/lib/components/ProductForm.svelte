@@ -18,7 +18,7 @@
     let isCropping=false;
 
     if (selectedProduct && actionModal != "add") {
-        imagePreview = "/uploads/" + selectedProduct.image;
+        imagePreview = selectedProduct.image;
         // console.log(imagePreview);
         product_name = selectedProduct.product_name || "";
         category = selectedProduct.category || "";
@@ -40,14 +40,6 @@
     const dispatch = createEventDispatcher();
 
     async function submitForm() {
-        // const updateProduct = {
-        //     id: selectedProduct,
-        //     product_name,
-        //     price,
-        //     category,
-        //     imageFile,
-        //     description,
-        // };
 
         const formData = new FormData();
 
@@ -59,8 +51,8 @@
         if (imageFile) {
             formData.append("image", imageFile);
         }
-        console.log(formData);
-        console.log(imageFile);
+        // console.log(formData);
+        // console.log(imageFile);
         try {
             let response;
             if (actionModal === "add") {

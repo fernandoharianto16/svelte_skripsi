@@ -17,43 +17,86 @@ cloudinary.config({
 const router = Router();
 
 // Endpoint untuk mencari pengguna berdasarkan email
-router.get('/by-email', async (req, res) => {
+// router.get('/by-email', async (req, res) => {
+//     try {
+//         const { email } = req.query;
+
+//         if (!email) {
+//             return res.status(400).json({
+//                 message: 'Parameter email wajib diisi'
+//             });
+//         }
+
+//         const queryResult = await db
+//             .collection('users')
+//             .where('email', '==', email)
+//             .limit(1)
+//             .get();
+
+//         if (queryResult.empty) {
+//             return res.status(404).json({
+//                 message: 'User tidak ditemukan'
+//             });
+//         }
+
+//         const doc = queryResult.docs[0];
+
+//         return res.status(200).json({
+//             id: doc.id,
+//             ...doc.data()
+//         });
+
+//     } catch (error) {
+//         console.error('Error get user by email:', error);
+//         return res.status(500).json({
+//             message: 'Internal server error'
+//         });
+//     }
+// });
+
+router.get("/", async (req, res) => {
+    // ambil semua produk
     try {
-        const { email } = req.query;
-
-        if (!email) {
-            return res.status(400).json({
-                message: 'Parameter email wajib diisi'
+         
+            const productsRef = admin.firestore().collection('products');
+    
+            const snapshot = await productsRef
+                .where('status', '==', 'active')
+                .orderBy('created_at', 'desc')
+                .get();
+    
+            const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // console.log(products);
+    
+            res.json({
+                data: products,
+                total: products.length
             });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ message: 'Server error' });
         }
-
-        const queryResult = await db
-            .collection('users')
-            .where('email', '==', email)
-            .limit(1)
-            .get();
-
-        if (queryResult.empty) {
-            return res.status(404).json({
-                message: 'User tidak ditemukan'
-            });
-        }
-
-        const doc = queryResult.docs[0];
-
-        return res.status(200).json({
-            id: doc.id,
-            ...doc.data()
-        });
-
-    } catch (error) {
-        console.error('Error get user by email:', error);
-        return res.status(500).json({
-            message: 'Internal server error'
-        });
-    }
 });
 
+router.get("/:id", async (req, res) => {
+    try {
+        const productId = req.params.id; // Mengambil ID dari URL
+        const productRef = admin.firestore().collection('products').doc(productId);
+        const doc = await productRef.get();
+
+        if (!doc.exists) {
+            return res.status(404).json({ message: 'Produk tidak ditemukan' });
+        }
+
+        // Mengembalikan data beserta ID-nya
+        res.json({
+            data: { id: doc.id, ...doc.data() }
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
 // router.post('/',verifyToken, async (req, res) => {
 //     try {
@@ -88,8 +131,8 @@ router.post('/', verifyToken, async (req, res) => {
             role: roleSelected || 'customer', // Default role jika kosong
             poin: 0,
             status: true,
-            created_at: new Date().toISOString(), // Simpan format waktu standar
-            updated_at: new Date().toISOString()
+            createdAt: new Date().toISOString(), // Simpan format waktu standar
+            updatedAt: new Date().toISOString()
         };
 
         await db.collection('users').doc(uid).set(newUser);

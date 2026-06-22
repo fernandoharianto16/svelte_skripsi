@@ -1,6 +1,8 @@
 <script>
   import { onMount } from 'svelte';
 
+  import api from '$lib/api/axios';
+
   let name = '';
   let price = '';
   let description = '';
@@ -31,41 +33,7 @@
     }
   }
 
-  async function submitForm() {
-    loading = true;
-    message = '';
-
-    try {
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('price', price);
-      formData.append('description', description);
-      if (image) formData.append('image', image);
-
-      const res = await fetch('http://localhost:4000/api/products', {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        message = `✅ ${data.message}`;
-        name = '';
-        price = '';
-        description = '';
-        image = null;
-        previewUrl = '';
-      } else {
-        message = `❌ Error: ${data.message || 'Gagal menambahkan produk'}`;
-      }
-    } catch (err) {
-      message = '❌ Gagal terhubung ke server';
-      console.error(err);
-    } finally {
-      loading = false;
-    }
-  }
+  
 </script>
 
 <div class="container" class:dark={theme === 'dark'}>

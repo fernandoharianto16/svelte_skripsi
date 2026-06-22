@@ -1,7 +1,9 @@
 <script>
 	import Header from './Header.svelte';
 	import './styles.css';
-	export let params;
+	// import Chatbot from '$lib/components/Chatbot.svelte';
+	
+	// export let params;
 </script>
 
 <div class="app">
@@ -12,9 +14,9 @@
 	</main>
 
 	<footer>
-		ini footer
-		<!-- <p>visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to learn SvelteKit This is footer on layout.svlelte</p> -->
+		<!-- ini footer -->
 	</footer>
+	<!-- <Chatbot /> -->
 </div>
 
 <style>

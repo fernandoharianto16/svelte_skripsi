@@ -5,6 +5,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
+		"server": "nodemon src/lib/server/server.js",
 		"start": "node src/lib/server/server.js",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
@@ -25,13 +26,19 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@google-cloud/dialogflow": "^7.6.2",
 		"axios": "^1.7.0",
-		"cors": "^2.8.5",
+		"cloudinary": "^2.10.0",
+		"cors": "^2.8.6",
 		"cropperjs": "^1.5.13",
-		"express": "^4.19.2",
+		"dotenv": "^17.4.2",
+		"express": "^4.22.2",
 		"firebase": "^10.12.2",
 		"firebase-admin": "^12.2.0",
-		"multer": "^2.1.1",
+		"midtrans-client": "^1.4.3",
+		"multer": "^2.2.0",
+		"node-cron": "^4.4.1",
+		"streamifier": "^0.1.1",
 		"sweetalert2": "^11.26.24"
 	}
 }
