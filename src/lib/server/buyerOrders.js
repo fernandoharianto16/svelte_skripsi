@@ -62,6 +62,47 @@ router.get('/:id', verifyToken, async (req, res) => {
     }
 });
 
+router.get('/review/:id', verifyToken, async (req, res) => {
+    try {
+        // 1. Ambil SEMUA dokumen dari collection 'reviews' berdasarkan order_id
+        const reviewsSnapshot = await db.collection('reviews')
+            .where('order_id', '==', req.params.id)
+            .get();
+
+        // Jika tidak ada review sama sekali untuk order_id ini
+        if (reviewsSnapshot.empty) {
+            return res.status(200).json([]); 
+        }
+
+        const allReviews = [];
+        let isAuthorized = true;
+
+        // 2. Lakukan looping untuk mengambil semua data dokumen review
+        reviewsSnapshot.forEach(doc => {
+            const reviewData = doc.data();
+
+            // Validasi keamanan: Pastikan buyer_id di setiap ulasan cocok dengan user yang login
+            if (reviewData.buyer_id !== req.user.uid) {
+                isAuthorized = false;
+            }
+
+            allReviews.push(reviewData);
+        });
+
+        // Jika ada salah satu review yang terindikasi milik user lain, tolak aksesnya
+        if (!isAuthorized) {
+            return res.status(403).json({ message: "Akses ditolak" });
+        }
+
+        // 3. Kembalikan ARRAY yang berisi seluruh review produk
+        return res.status(200).json(allReviews);
+
+    } catch (err) {
+        console.error("Backend Error:", err);
+        return res.status(500).json({ message: "Gagal mengambil data review" });
+    }
+});
+
 
 router.patch('/:orderId/status', verifyToken, async (req, res) => {
     try {
@@ -80,10 +121,76 @@ router.patch('/:orderId/status', verifyToken, async (req, res) => {
             return res.status(403).json({ message: "Anda tidak memiliki akses ke pesanan ini" });
         }
         // 4. Update status di Firestore
-        await orderRef.update({
-            order_status: status,
-            updated_at: new Date().toISOString()
-        });
+        // await orderRef.update({
+        //     order_status: status,
+        //     updated_at: new Date()
+        // });
+        if (status === 'completed') {
+            // A. Ambil semua item dari koleksi 'order_details' yang memiliki order_id terkait
+            const orderDetailsSnapshot = await db.collection('order_details')
+                .where('order_id', '==', orderId)
+                .get();
+
+            // Gunakan Batch agar proses atomis (aman)
+            const batch = db.batch();
+
+            // Antrikan update status pada dokumen order utama
+            batch.update(orderRef, {
+                order_status: status,
+                updated_at: new Date().toISOString()
+            });
+
+            // B. Looping setiap dokumen item yang ditemukan di order_details
+            orderDetailsSnapshot.forEach((docDetail) => {
+                const itemData = docDetail.data();
+
+                // Ambil data product_id dan quantity sesuai gambar database kamu
+                const productId = itemData.product_id;
+                const quantity = itemData.quantity;
+
+                if (productId && quantity) {
+                    const productRef = db.collection('products').doc(productId);
+
+                    // Tambahkan sold_count berdasarkan nilai quantity dokumen ini
+                    batch.update(productRef, {
+                        sold_count: admin.firestore.FieldValue.increment(quantity)
+                    });
+                }
+            });
+
+            // Ambil data order untuk kalkulasi atau mencocokkan ID penjual
+            const orderData = orderDoc.data(); 
+            
+            const autoIdRef = db.collection('transactions').doc();
+
+            // 2. Gabungkan teks 'TX-' dengan Auto-ID bawaan Firestore tadi
+            const transactionId = `TX-${autoIdRef.id}`; // Hasilnya nanti seperti: TX-K3b7FmX9zLqP2wV1rS8t
+
+            // Hitung biaya admin dan pendapatan bersih penjual
+            const totalPayment = orderData.total_price; // Ambil dari data order asli
+            const adminFee = totalPayment * 0.15; // Misal biaya admin 15%
+            const sellerIncome = totalPayment - adminFee;
+
+            // Referensi ke dokumen baru di koleksi 'transactions' dengan ID custom
+            const transactionRef = db.collection('transactions').doc(transactionId);
+
+            // Antrikan pembuatan dokumen transaksi ke dalam BATCH
+            batch.set(transactionRef, {
+                transaction_id: transactionId,
+                source_type: "normal_order", // atau sesuaikan dengan jenis ordernya
+                source_id: orderId,            // Diisi dengan ID order terkait
+                seller_id: orderData.seller_id, // ID Penjual diambil dari data order
+                buyer_id: BuyerId,             // ID Pembeli yang sedang login
+                total_payment: totalPayment,
+                admin_fee: adminFee,
+                seller_income: sellerIncome,
+                status: "completed",
+                created_at: new Date().toISOString()
+            });
+
+            // C. Eksekusi seluruh batch sekaligus
+            await batch.commit();
+        }
         res.status(200).json({
             message: "Status pesanan berhasil diperbarui",
             new_status: status
@@ -107,7 +214,7 @@ router.post('/', verifyToken, async (req, res) => {
     try {
         // Ambil daftar ID produk dari keranjang
         const productIds = items.map(item => item.id);
-        
+
         // Ambil data produk asli dari database Firestore demi keamanan harga
         const productsSnapshot = await db.collection('products')
             .where('__name__', 'in', productIds)
@@ -146,6 +253,7 @@ router.post('/', verifyToken, async (req, res) => {
             processedItems.push({
                 productId: freshProductData.id,
                 product_name: freshProductData.product_name,
+                image: freshProductData.image,
                 price: freshProductData.price,
                 quantity: item.quantity
             });
@@ -177,10 +285,11 @@ router.post('/', verifyToken, async (req, res) => {
         // Masukkan setiap detail barang belanjaan ke koleksi 'order_details'
         processedItems.forEach(p => {
             const orderDetailRef = db.collection('order_details').doc();
-            
+
             batch.set(orderDetailRef, {
                 order_id: orderRef.id, // Menghubungkan ke ID order utama di atas
                 product_id: p.productId,
+                product_image_at_purchase:p.image,
                 product_name_at_purchase: p.product_name,
                 product_price_at_purchase: p.price,
                 quantity: p.quantity
@@ -191,10 +300,10 @@ router.post('/', verifyToken, async (req, res) => {
         await batch.commit();
 
         // Respon balik sukses ke front-end SvelteKit
-        return res.status(201).json({ 
+        return res.status(201).json({
             success: true,
-            message: "Pesanan keranjang berhasil diproses", 
-            orderId: orderRef.id 
+            message: "Pesanan keranjang berhasil diproses",
+            orderId: orderRef.id
         });
 
     } catch (err) {
@@ -239,6 +348,78 @@ router.delete("/:id", verifyToken, async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ message: "Terjadi kesalahan" });
+    }
+});
+
+router.post('/reviews', verifyToken, async (req, res) => {
+    const userId = req.user.uid;
+    const payload = req.body; // Menerima array dari frontend Svelte
+
+    // 1. Validasi awal payload
+    if (!payload || !Array.isArray(payload) || payload.length === 0) {
+        return res.status(400).json({ message: "Data ulasan tidak valid atau kosong." });
+    }
+
+    try {
+        const batch = db.batch();
+        
+        // Ambil order_id dari item pertama untuk memvalidasi kepemilikan order
+        const firstReview = payload[0];
+        const orderId = firstReview.order_id;
+
+        if (!orderId) {
+            return res.status(400).json({ message: "Order ID wajib disertakan." });
+        }
+
+        // 2. Validasi Keamanan: Pastikan order ini benar-benar milik buyer yang sedang login
+        const orderRef = db.collection('orders').doc(orderId);
+        const orderDoc = await orderRef.get();
+
+        if (!orderDoc.exists) {
+            return res.status(404).json({ message: "Data pesanan tidak ditemukan." });
+        }
+
+        const orderData = orderDoc.data();
+        if (orderData.buyer_id !== userId) {
+            return res.status(403).json({ message: "Akses ditolak. Ini bukan pesanan Anda." });
+        }
+
+        // Cek jika pesanan sudah pernah diulas sebelumnya untuk menghindari double-input
+        if (orderData.is_reviewed) {
+            return res.status(400).json({ message: "Pesanan ini sudah pernah diulas sebelumnya." });
+        }
+
+        // 3. Iterasi setiap ulasan produk di dalam payload dan masukkan ke batch
+        payload.forEach(item => {
+            const reviewRef = db.collection('reviews').doc(); // Auto-generate ID review
+            
+            batch.set(reviewRef, {
+                order_id: item.order_id,
+                product_id: item.product_id,
+                buyer_id: userId,
+                rating: Number(item.rating), // Pastikan bertipe angka/integer
+                comment: item.comment || "", // Jika kosong, beri string kosong
+                created_at: new Date().toISOString()
+            });
+        });
+
+        // 4. Update status dokumen 'orders' utama agar 'is_reviewed' menjadi true
+        batch.update(orderRef, {
+            is_reviewed: true,
+            updated_at: new Date().toISOString()
+        });
+
+        // 5. Eksekusi semua penulisan data ke Firestore secara bersamaan
+        await batch.commit();
+
+        return res.status(201).json({
+            success: true,
+            message: "Semua ulasan berhasil disimpan secara permanen."
+        });
+
+    } catch (err) {
+        console.error("Error saat menyimpan review:", err);
+        return res.status(500).json({ message: "Gagal menyimpan ulasan di server." });
     }
 });
 

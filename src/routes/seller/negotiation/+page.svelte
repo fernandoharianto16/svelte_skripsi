@@ -146,11 +146,11 @@
 
 <div class="header">
   <h1>Negosiasi Saya</h1>
-  <div class="button-group">
+  <!-- <div class="button-group">
     <button class="order-btn" on:click={goToDashboard}>
       <i class="bi bi-house"></i> Dashboard Buyer
     </button>
-  </div>
+  </div> -->
 </div>
 
 <!-- <div class="search-box">

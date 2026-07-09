@@ -56,7 +56,7 @@
       isLoading = true;
       const res = await api.get(`/buyer/products`);
       products = res.data.data;
-      console.log("Struktur data produk:", products[0]);
+      // console.log("Struktur data produk:", products[0]);
     } catch (err) {
       console.error("Gagal memuat produk:", err);
     } finally {
@@ -79,7 +79,14 @@
   });
 
   onMount(() => {
-    loadProducts();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadProducts();
+      } else {
+        isLoading = false;
+      }
+    });
+    return () => unsubscribe();
   });
 </script>
 
@@ -145,7 +152,7 @@
               image={product.image_url || product.image}
               title={product.product_name}
               price={product.price}
-              soldCount={product.total_sold || 0}
+              soldCount={product.sold_count}
             />
           </a>
         {/each}
@@ -206,9 +213,9 @@
     padding: 50px;
     color: #888;
   }
-
+/* 
   .profile-menu {
-    position: relative; /* Penting untuk posisi dropdown */
+    position: relative; 
   }
 
   .profile-icon {
@@ -246,5 +253,5 @@
 
   .dropdown-content a:hover, .logout-btn:hover {
     background: #f8f9fa;
-  }
+  } */
 </style>

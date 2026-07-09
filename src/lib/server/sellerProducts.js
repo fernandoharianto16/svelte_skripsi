@@ -71,8 +71,8 @@ router.post("/", verifyToken, upload.single("image"), async (req, res) => {
             seller_id,
             sold_count: 0,
             status: "active",
-            created_at: new Date(),
-            updated_at: new Date(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
         };
 
         const result = await db.collection("products").add(newProduct);
@@ -91,56 +91,6 @@ router.post("/", verifyToken, upload.single("image"), async (req, res) => {
         });
     }
 });
-
-// router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { product_name, price, description, category } = req.body;
-
-//         const productsRef = db.collection("products").doc(id);
-//         const doc = await productsRef.get();
-
-//         if (!doc.exists) {
-//             return res.status(404).json({ message: "Product not found" });
-//         }
-
-//         const oldData = doc.data();
-//         if (oldData.seller_id !== req.user.uid) {
-//             return res.status(403).json({
-//                 message: "Forbidden: not your product"
-//             });
-//         }
-//         // kalau ada file baru → pakai
-//         // kalau tidak → tetap pakai yang lama
-//         let image = oldData.image;
-
-//         if (req.file) {
-//             image = req.file.filename;
-//         }
-
-//         const updatedProduct = {
-//             product_name,
-//             price,
-//             description,
-//             category,
-//             image,
-//             updatedAt: new Date(),
-//         };
-
-//         await productsRef.update(updatedProduct);
-
-//         res.status(200).json({
-//             message: "Product updated",
-//             data: updatedProduct,
-//         });
-
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).json({
-//             message: "Server error",
-//         });
-//     }
-// });
 
 router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
     try {
@@ -173,7 +123,7 @@ router.put("/:id", verifyToken, upload.single("image"), async (req, res) => {
             description,
             category,
             image,
-            updatedAt: new Date(),
+            updated_at: new Date().toISOString(),
         };
 
         await productsRef.update(updatedProduct);

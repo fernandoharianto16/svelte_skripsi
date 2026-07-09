@@ -58,7 +58,7 @@ router.post('/:orderId', verifyToken, async (req, res) => {
             custom_request_id: orderData.custom_request_id || null,
             payment_method: null,
             payment_status: 'pending',
-            payment_date: admin.firestore.FieldValue.serverTimestamp(),
+            payment_date: new Date().toISOString(),
             transaction_token: token
         });
 
@@ -207,7 +207,7 @@ router.post('/custom/:requestId', verifyToken, async (req, res) => {
             custom_request_id: requestId, // Menyimpan ID custom request
             payment_method: null,
             payment_status: 'pending',
-            payment_date: admin.firestore.FieldValue.serverTimestamp(),
+            payment_date: new Date().toISOString(),
             transaction_token: token
         });
 
@@ -234,7 +234,7 @@ router.post('/custom/update/:requestId', async (req, res) => {
         // 1. Update koleksi 'custom_requests'
         await db.collection('custom_requests').doc(requestId).update({
             payment_status: "paid",
-            request_status: "paid" // atau "processing" agar penjual tahu ini siap diproduksi
+            request_status: "processing" // atau "processing" agar penjual tahu ini siap diproduksi
         });
 
         // 2. Update koleksi 'payments'

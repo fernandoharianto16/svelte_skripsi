@@ -67,7 +67,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 router.patch('/:orderId/status', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.params;
-        const { status } = req.body; // Status baru (misal: 'processing', 'shipped', 'cancelled')
+        const { status, paymentStatus } = req.body; // Status baru (misal: 'processing', 'shipped', 'cancelled')
         const sellerId = req.user.uid; // Pastikan user yang login adalah penjual yang sah
         // 1. Referensi ke dokumen order
         const orderRef = db.collection('orders').doc(orderId);
@@ -83,6 +83,7 @@ router.patch('/:orderId/status', verifyToken, async (req, res) => {
         // 4. Update status di Firestore
         await orderRef.update({
             order_status: status,
+            payment_status:paymentStatus,
             updated_at: new Date().toISOString()
         });
         res.status(200).json({ 
@@ -95,45 +96,6 @@ router.patch('/:orderId/status', verifyToken, async (req, res) => {
     }
 });
 
-//ADD PRODUCT
-router.post("/", verifyToken, upload.single("image"), async (req, res) => {
-    try {
-        const { product_name, price, description, category } = req.body;
-        const seller_id = req.user.uid;
-        let imageUrl = null;
-        if (req.file) {
-            imageUrl = await uploadToCloudinary(req.file.buffer, "orders_images");
-        }
-
-        const newProduct = {
-            product_name,
-            price: Number(price),
-            category,
-            description,
-            image: imageUrl, // Menyimpan URL Cloudinary, bukan nama file lokal
-            seller_id,
-            sold_count: 0,
-            status: "active",
-            created_at: new Date(),
-            updated_at: new Date(),
-        };
-
-        const result = await db.collection("orders").add(newProduct);
-
-        res.status(201).json({
-            message: "Product created",
-            id: result.id,
-            data: newProduct,
-        });
-
-    } catch (error) {
-        console.error("Gagal menambah produk:", error);
-        res.status(500).json({
-            message: "Server error",
-            error: error.message
-        });
-    }
-});
 router.post("/ship/:orderId", verifyToken, upload.single("image"), async (req, res) => {
     try {
         const { orderId } = req.params;
@@ -150,7 +112,7 @@ router.post("/ship/:orderId", verifyToken, upload.single("image"), async (req, r
         await db.collection("orders").doc(orderId).update({
             order_status: "shipped",
             shipment_proof: imageUrl, // Menyimpan URL Cloudinary
-            shipped_at: new Date()
+            shipped_at: new Date().toISOString()
         });
 
         res.status(200).json({ 
@@ -265,6 +227,52 @@ router.use((err, req, res, next) => {
         return res.status(400).json({ message: err.message });
     }
     next(err);
+});
+
+router.get('/review/:id', verifyToken, async (req, res) => {
+    try {
+    const orderId = req.params.id;
+    const sellerUid = req.user.uid; // ID Penjual yang sedang login
+
+    // 1. Validasi Keamanan: Cek apakah order ini benar milik Seller yang login
+    // Kita cek dulu ke collection 'orders' (atau 'requests')
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+
+    if (!orderDoc.exists) {
+        return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+    }
+
+    const orderData = orderDoc.data();
+
+    // Pastikan seller_id di order tersebut cocok dengan UID seller yang sedang login
+    if (orderData.seller_id !== sellerUid) {
+        return res.status(403).json({ message: "Akses ditolak. Ini bukan pesanan toko Anda." });
+    }
+
+    // 2. Jika aman, baru ambil SEMUA dokumen dari collection 'reviews' berdasarkan order_id
+    const reviewsSnapshot = await db.collection('reviews')
+        .where('order_id', '==', orderId)
+        .get();
+
+    // Jika tidak ada review sama sekali untuk order_id ini
+    if (reviewsSnapshot.empty) {
+        return res.status(200).json([]); 
+    }
+
+    const allReviews = [];
+
+    // 3. Ambil semua data review (tidak perlu validasi buyer_id lagi karena order sudah tervalidasi)
+    reviewsSnapshot.forEach(doc => {
+        allReviews.push(doc.data());
+    });
+
+    // 4. Kembalikan ARRAY yang berisi seluruh review produk untuk seller
+    return res.status(200).json(allReviews);
+
+} catch (err) {
+    console.error("Backend Error (Seller Review):", err);
+    return res.status(500).json({ message: "Gagal mengambil data review" });
+}
 });
 
 export default router;

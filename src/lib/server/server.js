@@ -23,9 +23,12 @@ import publicProductRoutes from'./publicProducts.js';
 
 // import chatbotRoutes from './chatbot.js';
 import paymentRoutes from './payments.js';
+import reportRoutes from './report.js';
+import transactionRoutes from './transaction.js';
 
+import adminRoutes from './admin.js';
 
-import initOrderCron from './jobs/orderCron.js';
+import initCronJob from './jobs/cronJob.js';
 // App menggunakan Express
 const app = express();
 
@@ -58,6 +61,10 @@ app.use('/api/buyer/custom_request',buyerCustomRequestRoutes);
 app.use('/api/products',publicProductRoutes);
 // app.use('/api/chatbot',chatbotRoutes);
 app.use('/api/payments',paymentRoutes);
+app.use('/api/reports',reportRoutes);
+app.use('/api/transaction',transactionRoutes);
+
+app.use('/api/admin',adminRoutes);
 
 // Tambahkan endpoint API kustom di sini
 app.get('/api/hello', (req, res) => {
@@ -72,7 +79,7 @@ app.get('/', (req, res) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  initOrderCron();
+  initCronJob();
   console.log('Sistem Cron Job Pembatalan Firestore Aktif.');
 });
 

@@ -115,6 +115,30 @@ router.post('/:id', verifyToken, async (req, res) => {
             quantity: 1
         });
 
+        const buyerRef = db.collection('users').doc(userId);
+        const buyerDoc = await buyerRef.get();
+
+        if (!buyerDoc.exists) {
+            return res.status(404).json({ message: "Pengguna tidak ditemukan" });
+        }
+
+        const buyerData = buyerDoc.data();
+
+        // const sellerId = product.seller_id; // UID penjual yang akan menerima notifikasi
+        const buyerName = buyerData.nama; // Nama pembeli yang memesan produk
+
+        // SINKRONISASI STRUKTUR DATA NOTIFIKASI
+        const newNotification = {
+            user_id: sellerId, // Penerima notifikasi (Penjual)
+            title: "Pesanan Baru Masuk",
+            message: `${buyerName} telah memesan produk Anda: "${productData.product_name}". Segera proses pesanan ini.`,
+            is_read: false, // Default false karena belum dibaca penjual
+            created_at: new Date().toISOString() // Format ISO String murni sesuai standar kamu
+        };
+
+        // Simpan ke koleksi notifications di Firestore
+        await admin.firestore().collection('notifications').add(newNotification);
+
         await batch.commit();
 
         res.status(201).json({ message: "Pesanan berhasil dibuat", orderId: orderRef.id });

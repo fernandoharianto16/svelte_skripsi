@@ -16,45 +16,7 @@ cloudinary.config({
 });
 const router = Router();
 
-// Endpoint untuk mencari pengguna berdasarkan email
-// router.get('/by-email', async (req, res) => {
-//     try {
-//         const { email } = req.query;
-
-//         if (!email) {
-//             return res.status(400).json({
-//                 message: 'Parameter email wajib diisi'
-//             });
-//         }
-
-//         const queryResult = await db
-//             .collection('users')
-//             .where('email', '==', email)
-//             .limit(1)
-//             .get();
-
-//         if (queryResult.empty) {
-//             return res.status(404).json({
-//                 message: 'User tidak ditemukan'
-//             });
-//         }
-
-//         const doc = queryResult.docs[0];
-
-//         return res.status(200).json({
-//             id: doc.id,
-//             ...doc.data()
-//         });
-
-//     } catch (error) {
-//         console.error('Error get user by email:', error);
-//         return res.status(500).json({
-//             message: 'Internal server error'
-//         });
-//     }
-// });
-
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, async (req, res) => {
     // ambil semua produk
     try {
          
@@ -78,7 +40,7 @@ router.get("/", async (req, res) => {
         }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
     try {
         const productId = req.params.id; // Mengambil ID dari URL
         const productRef = admin.firestore().collection('products').doc(productId);
@@ -98,63 +60,35 @@ router.get("/:id", async (req, res) => {
     }
 });
 
-// router.post('/',verifyToken, async (req, res) => {
-//     try {
-//         const uid=req.user.uid;
-//         const { emailInput, passwordInput, roleSelected } = req.body;
-//         const username = emailInput.split('@')[0];
-//         const newUser = {
-//             email: emailInput,
-//             nama: username,
-//             role: roleSelected,
-//             password: passwordInput,
-//             poin: 0,
-//             status: true,
-//         };
-//         await db.collection('users').doc(uid).set(newUser);
-//         res.status(201).json({ message:"User Created", data: newUser });
-//     } catch (error) {
-//         console.error('Gagal menambahkan data:', error);
-//         res.status(500).send('Terjadi kesalahan saat menambahkan data');
-//     }
-// });
-
-router.post('/', verifyToken, async (req, res) => {
+router.get('/review/:id', verifyToken, async (req, res) => {
     try {
-        const uid = req.user.uid; // UID dari token
-        const { emailInput, roleSelected } = req.body; // Password sudah ditangani Auth
-        
-        const newUser = {
-            uid: uid,
-            email: emailInput,
-            nama: emailInput.split('@')[0],
-            role: roleSelected || 'customer', // Default role jika kosong
-            poin: 0,
-            status: true,
-            createdAt: new Date().toISOString(), // Simpan format waktu standar
-            updatedAt: new Date().toISOString()
-        };
+        const productId = req.params.id;
 
-        await db.collection('users').doc(uid).set(newUser);
-        
-        res.status(201).json({ message: "User created successfully", data: newUser });
-    } catch (error) {
-        console.error('Error creating user:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        // 1. Query ke collection 'reviews' berdasarkan product_id
+        const reviewsSnapshot = await db.collection('reviews')
+            .where('product_id', '==', productId)
+            .get();
+
+        // 2. Jika tidak ada ulasan sama sekali, kembalikan array kosong dengan status 200 OK
+        // Ini agar frontend tidak memicu error catch() dan halaman tetap tampil rapi
+        if (reviewsSnapshot.empty) {
+            return res.status(200).json([]);
+        }
+
+        const productReviews = [];
+
+        // 3. Looping semua dokumen review yang ditemukan
+        reviewsSnapshot.forEach(doc => {
+            productReviews.push(doc.data());
+        });
+
+        // 4. Kirimkan seluruh daftar ulasan produk ke frontend
+        return res.status(200).json(productReviews);
+
+    } catch (err) {
+        console.error("Backend Error Fetching Product Reviews:", err);
+        return res.status(500).json({ message: "Gagal mengambil ulasan produk" });
     }
 });
-
-router.get('/me', verifyToken, async (req, res) => {
-  const uid = req.user.uid;
-
-  const docSnap = await db.collection('users').doc(uid).get();
-
-  if (!docSnap.exists) {
-    return res.status(404).json({ message: "User tidak ditemukan" });
-  }
-
-  res.json(docSnap.data());
-});
-
 
 export default router;

@@ -56,7 +56,7 @@
                 headers: { "Content-Type": "multipart/form-data" }
             });
 
-            Swal.fire("Berhasil!", "Custom request Anda berhasil dikirim.", "success");
+            Swal.fire("Berhasil!", "Custom request Anda berhasil dibuat.", "success");
             
             // Reset Form setelah sukses
             category = "";
@@ -112,7 +112,7 @@
         <div class="right-column">
             
             <div class="field">
-                <label for="category">Masukkan deskripsi produk</label>
+                <label for="category">Pilih kategori produk</label>
                 <select id="category" bind:value={category} required>
                     <option value="" disabled selected></option>
                     {#each categories as cat}
@@ -135,7 +135,7 @@
                     />
                 </div>
             </div>
-
+            <label for="description">Masukkan deskripsi produk</label>
             <div class="field">
                 <textarea
                     id="description"
@@ -147,7 +147,7 @@
             </div>
 
             <button type="submit" disabled={isCropping || isSubmitting}>
-                {isSubmitting ? "Mengirim..." : "Kirim Custom Request"}
+                {isSubmitting ? "Mengirim..." : "Buat Custom Request"}
             </button>
         </div>
 

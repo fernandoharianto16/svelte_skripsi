@@ -17,7 +17,7 @@ router.get('/', verifyToken, async (req, res) => {
         // 3. Query menggunakan composite index: buyer_id (Filter) & updated_at (Sorting)
         const snapshot = await negotiationsRef
             .where('seller_id', '==', seller_id) // Mencari berdasarkan id pembeli
-            // .orderBy('updated_at', 'desc')    // Mengurutkan dari yang terbaru diperbarui
+            .orderBy('created_at', 'desc')    // Mengurutkan dari yang terbaru diperbarui
             .get();
 
         // 4. Map hasilnya
@@ -66,6 +66,19 @@ router.patch('/:id/accept', verifyToken, async (req, res) => {
 
             const data = negoDoc.data();
 
+            const productsRef = db.collection("products").doc(data.product_id);
+            const doc = await productsRef.get();
+
+            // 💡 VALIDASI WAJIB: Cek apakah produknya benar-benar ada di Firestore
+            if (!doc.exists) {
+            console.error(`[ERROR] Produk dengan ID ${data.product_id} tidak ditemukan!`);
+            // Berikan return atau throw error sesuai kebutuhan flow backend-mu
+            throw new Error("Produk tidak ditemukan"); 
+            }
+
+            // Ekstrak data asli dari dalam dokumen Firestore
+            const productData = doc.data();
+
             // 1. Generate ID Baru untuk Dokumen Order dan Payment secara instan
             const orderRef = db.collection('orders').doc();
             const detailRef = db.collection('order_details').doc();
@@ -111,7 +124,7 @@ router.patch('/:id/accept', verifyToken, async (req, res) => {
                 product_name_at_purchase: data.product_name,
                 product_price_at_purchase: Number(data.offered_price),
                 // Pastikan saat membuat tawaran awal (POST), data.product_image sudah disimpan di data negosiasi
-                product_image_at_purchase: data.product_image || "" 
+                product_image_at_purchase: productData.image || "" 
             });
 
             // 5. SET KOLEKSI 'payments' (Lengkap sesuai skema Anda)

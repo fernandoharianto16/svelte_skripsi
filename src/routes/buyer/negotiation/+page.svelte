@@ -37,7 +37,7 @@
       const res = await api.get(`/buyer/negotiations`);
       // console.log(res);
       negotiations = res.data.data || res.data || [];
-      console.log("Data Negosiasi Pembeli:", negotiations);
+      // console.log("Data Negosiasi Pembeli:", negotiations);
     } catch (err) {
       console.error(err);
       Swal.fire("Gagal", "Tidak dapat mengambil data negosiasi", "error");
@@ -144,9 +144,9 @@
     }
   }
 
-  function goToDashboard() {
-    goto("/buyer/dashboard"); // Menyesuaikan ke arah dashboard buyer
-  }
+  // function goToDashboard() {
+  //   goto("/buyer/dashboard"); // Menyesuaikan ke arah dashboard buyer
+  // }
 
   async function quickCounter(negoId, currentPrice,productName) {
     const { value: newPrice } = await Swal.fire({
@@ -196,11 +196,11 @@
 
 <div class="header">
   <h1>Negosiasi Saya</h1>
-  <div class="button-group">
+  <!-- <div class="button-group">
     <button class="order-btn" on:click={goToDashboard}>
       <i class="bi bi-house"></i> Dashboard Buyer
     </button>
-  </div>
+  </div> -->
 </div>
 
 <!-- <div class="search-box">
@@ -261,20 +261,20 @@
                 </button>
               {/if}
 
-              {#if (nego.counter_count || 0) < 3}
-              <button
-                on:click={() => acceptNego(nego.id)}
-                class="btn-icon btn-take"
-                title="Terima & Buat Order"
-              >
-                <i class="bi bi-check-lg"></i>
-              </button>
-              <button
-                on:click={() => rejectNego(nego.id)}
-                class="btn-icon btn-reject"
-                title="Tolak Tawaran"
-              >
-                <i class="bi bi-trash"></i>
+              {#if (nego.counter_count || 0) < 3 && nego.status!="canceled" && nego.status!="accepted"&& nego.status!="pending"&& nego.status!="rejected"}
+                <button
+                  on:click={() => acceptNego(nego.id)}
+                  class="btn-icon btn-take"
+                  title="Terima & Buat Order"
+                >
+                  <i class="bi bi-check-lg"></i>
+                </button>
+                <button
+                  on:click={() => rejectNego(nego.id)}
+                  class="btn-icon btn-reject"
+                  title="Tolak Tawaran"
+                >
+                  <i class="bi bi-trash"></i>
               </button>
               {/if}
             </div>
@@ -567,6 +567,10 @@
     color: #15803d;
   }
   .badge.rejected {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+  .badge.canceled {
     background: #fee2e2;
     color: #b91c1c;
   }

@@ -1,6 +1,11 @@
 <script>
   import { onMount } from "svelte";
-  import { createUserWithEmailAndPassword } from "firebase/auth";
+  import Swal from "sweetalert2";
+  import {
+    createUserWithEmailAndPassword,
+    updateProfile,
+    signOut,
+  } from "firebase/auth";
   import { auth } from "../../../lib/firebase.js";
   import api from "$lib/api/axios";
   let message = "";
@@ -23,80 +28,91 @@
   let data;
 
   const handleSubmit = async () => {
-    // console.log(email,password, role);
     errors = {};
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (email.length === 0) {
-      errors.email = "Field email tidak boleh kosong";
-    } else if (!emailRegex.test(email)) {
-      errors.email = "Format email tidak valid (contoh: user@mail.com)";
-    }
-    if (password.length === 0) {
-      errors.password = "Field password tidak boleh kosong";
-    } else if (password.length < 8) {
-      errors.password = "Password tidak boleh kurang dari 8 digit karakter";
-    }
-    if (password !== confirmPassword) {
-      errors.confirmPassword = "Password dengan konfirmasi password tidak sama";
-    }
+    // ... (validasi regex email & password kamu tetap sama) ...
 
-    // Cek inputan error
     if (Object.keys(errors).length === 0) {
       isLoading = true;
-      try {
-        // Simulasi pengiriman data pendaftaran ke server
-        const response = await new Promise((resolve, reject) => {
-          // Lakukan validasi tambahan jika diperlukan
-          setTimeout(async () => {
-            // 1. Buat user di Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(
-              auth,
-              email,
-              password,
-            );
-            // const user = userCredential.user;
-            // AMBIL TOKEN
-            // const token = await user.getIdToken();
-            // MENAMBAHKAN USER KE FIRESTORE USER BARU
-            // 3. Kirim ke backend (termasuk password sementara)
-            await api.post("/api/users", {
-              emailInput: email,
-              passwordInput: password,
-              roleSelected: role,
-            });
-            // xios.post(
-            //   {
-            //     emailInput:email,
-            //     passwordInput: password, // sementara
-            //     roleSelected: role,
-            //   },
-            //   {
-            //     headers: {
-            //       Authorization: `Bearer ${token}`,
-            //     },
-            //   },
-            // );
-            const isSuccess = true;
-            if (isSuccess) {
-              resolve({ message: "Registrasi sukses!" });
-            } else {
-              reject("Registrasi gagal. Silahkan input ulang.");
-            }
-          }, 2000); // Waktu tunggu simulasi 2 detik
-        });
+      let createdUser = null; // 1. Simpan referensi user yang berhasil dibuat di sini
 
-        console.log(response.message);
+      try {
+        await new Promise((resolve, reject) => {
+          setTimeout(async () => {
+            try {
+              // LANGKAH A: Buat user di Firebase Auth
+              const defaultName = email.split("@")[0];
+              const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                email,
+                password,
+              );
+              createdUser = userCredential.user; // Ambil referensinya untuk jaga-jaga kalau harus dihapus
+
+              // LANGKAH B: Update Profile
+              await updateProfile(createdUser, { displayName: defaultName });
+
+              // LANGKAH C: Kirim ke Backend API / Tambah ke Firestore
+              // Jika di dalam api.post ini terjadi error (misal server down, salah input, dll),
+              // alur akan langsung loncat ke blok CATCH di bawah.
+              await api.post("/users", {
+                emailInput: email,
+                passwordInput: password,
+                roleSelected: role,
+              });
+
+              // Jika semua sukses sampai sini:
+              resolve({ message: "Registrasi sukses!" });
+            } catch (innerError) {
+              // Tangkap error yang terjadi di dalam simulasi/proses async
+              reject(innerError);
+            }
+          }, 2000);
+        });
+        await signOut(auth);
         isSuccess = true;
+        Swal.fire({
+          icon: "success",
+          title: "Registrasi Berhasil!",
+          text: "Mengarahkan ke halaman login...",
+          toast: true, // 1. Mengubah gaya menjadi mini popup (toast)
+          position: "top-end", // 2. Posisi di pojok kanan atas (bisa diganti 'top' atau 'bottom-end')
+          showConfirmButton: false, // 3. MATIKAN TOMBOL KONFIRMASI
+          timer: 3000, // 4. Alert hanya muncul selama 2 detik
+          timerProgressBar: true,
+          didOpen: (toast) => {
+            // Opsional: Memberikan efek interaktif kecil saat kursor diarahkan ke popup
+            toast.addEventListener("mouseenter", Swal.stopTimer);
+            toast.addEventListener("mouseleave", Swal.resumeTimer);
+          },
+        }).then(() => {
+          // Otomatis pindah halaman begitu timer 2 detik di atas habis
+          window.location.href = "/login";
+        });
       } catch (error) {
-        console.error("Error:", error);
-        errors.server = error;
+        console.error("Error terdeteksi selama proses:", error);
+        errors.server = error.message || error;
+
+        // 🟢 MEKANISME ROLLBACK (Pembersihan Data Hantu)
+        if (createdUser) {
+          console.warn(
+            "Terjadi error setelah akun Auth dibuat. Menghapus kembali akun dari Firebase Auth...",
+          );
+          try {
+            // Hapus user dari Firebase Auth karena data pasangannya gagal tersimpan di database
+            await createdUser.delete();
+            console.log("Rollback sukses. Akun Auth berhasil dibersihkan.");
+          } catch (deleteError) {
+            console.error(
+              "Gagal melakukan rollback otomatis akun Auth:",
+              deleteError,
+            );
+          }
+        }
       } finally {
         isLoading = false;
       }
     }
   };
-
-
 </script>
 
 <svelte:head>

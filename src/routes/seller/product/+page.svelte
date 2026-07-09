@@ -23,14 +23,14 @@
   // const API_URL = import.meta.env.VITE_API_URL;
 
   onMount(() => {
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        console.error("User belum login");
-        return;
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadProducts();
+      } else {
+        loading = false;
       }
-
-      await loadProducts();
     });
+    return () => unsubscribe();
   });
 
   async function loadProducts() {
@@ -41,7 +41,7 @@
       const res = await api.get(`/seller/products`);
       products = res.data.data;
 
-      console.log("Products loaded:", products);
+      // console.log("Products loaded:", products);
     } catch (err) {
       console.error(err);
     } finally {
@@ -190,9 +190,6 @@
 <div class="header">
   <h1>Produk Saya</h1>
   <div class="button-group">
-    <button class="order-btn" on:click={goToOrders}>
-      <i class="bi bi-list-check"></i> Daftar Pesanan
-    </button>
     <button class="add-btn" on:click={openAddModal}>
       <i class="bi bi-plus-lg"></i> Tambah Produk
     </button>

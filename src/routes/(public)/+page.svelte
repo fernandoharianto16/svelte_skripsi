@@ -89,7 +89,7 @@
               image={product.image_url || product.image}
               title={product.product_name}
               price={product.price}
-              soldCount={product.total_sold || 0}
+              soldCount={product.sold_count}
             />
           </a>
         {/each}

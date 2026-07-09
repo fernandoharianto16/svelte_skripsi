@@ -17,7 +17,7 @@ router.get('/', verifyToken, async (req, res) => {
         // 3. Query menggunakan composite index: buyer_id (Filter) & updated_at (Sorting)
         const snapshot = await negotiationsRef
             .where('buyer_id', '==', buyer_id) // Mencari berdasarkan id pembeli
-            // .orderBy('updated_at', 'desc')    // Mengurutkan dari yang terbaru diperbarui
+            .orderBy('created_at', 'desc')    // Mengurutkan dari yang terbaru diperbarui
             .get();
 
         // 4. Map hasilnya
@@ -150,5 +150,56 @@ router.patch('/:id/counter', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 });
+
+router.post('/:selectedNegoId/counter', verifyToken, async (req, res) => {
+    try {
+        const { selectedNegoId } = req.params;
+        const { offered_price, bargain_reason } = req.body;
+        const buyer_id = req.user?.uid ; 
+
+        const negoRef = db.collection('negotiations').doc(selectedNegoId);
+        const negoDoc = await negoRef.get();
+
+        if (!negoDoc.exists) {
+            return res.status(404).json({ message: "Data negosiasi tidak ditemukan!" });
+        }
+
+        const negoData = negoDoc.data();
+
+        // 4. Validasi opsional (Contoh: pastikan harga counter baru tidak asal-asalan)
+        if (offered_price <= 0) {
+            return res.status(400).json({ message: "Harga penawaran tidak valid!" });
+        }
+        if (bargain_reason == "") {
+            return res.status(400).json({ message: "Deskripsi penawaran tidak valid!" });
+        }
+
+        // 5. Siapkan objek update data penawaran baru
+        // Kita update status, origin, harga terbaru, alasan, dan naikkan counter_count
+        const updatedNego = {
+            offered_price: offered_price,
+            bargain_reason: bargain_reason, // Menyimpan alasan tawar-menawar baru
+            origin_type: "buyer",            // Menandakan aksi terakhir dari buyer
+            status: 'countered',               // Status kembali pending menunggu respon seller
+            // counter_count: (negoData.counter_count || 0) + 1,
+            updated_at: new Date().toISOString()
+        };
+
+        // 6. Eksekusi update ke Firestore
+        await negoRef.update(updatedNego);
+
+        // 7. Berikan respon sukses 200 (OK) agar ditangkap sebagai sukses oleh Axios
+        res.status(200).json({
+            message: "Penawaran balik Anda berhasil dikirim!",
+            id: selectedNegoId,
+            data: updatedNego
+        });
+
+    } catch (error) {
+        console.error("Error updating counter offer:", error);
+        res.status(500).json({ message: "Gagal mengirim penawaran balik" });
+    }
+});
+
 
 export default router;

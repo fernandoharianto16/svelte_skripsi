@@ -48,11 +48,11 @@
     selectedRequestId = requestId;
     showDetailModal = true;
     modalLoading = true;
-    
+
     try {
       // Panggil endpoint backend yang baru saja kita buat
       const res = await api.get(`/seller/custom_request/${requestId}`);
-      
+
       // Masukkan data hasil response ke dalam variabel state
       requestMain = res.data;
     } catch (err) {
@@ -163,7 +163,6 @@
     }
   }
 
-
   // Reaktifitas pencarian
   $: filteredRequests = customRequests.filter(
     (req) =>
@@ -177,8 +176,7 @@
 </svelte:head>
 
 <div class="header">
-  <h1>Proyek Custom Request Saya</h1>
-  
+  <h1>Proyek Custom Order Saya</h1>
 </div>
 
 <div class="search-box">
@@ -198,9 +196,9 @@
   <table border="1" cellpadding="8">
     <thead>
       <tr>
+        <th>Gambar Produk</th>
         <th>Request ID</th>
         <th>Tanggal Masuk</th>
-        <th>Deskripsi Singkat</th>
         <th>Harga Negosiasi</th>
         <th>Status Proyek</th>
         <th>Status Pembayaran</th>
@@ -210,6 +208,17 @@
     <tbody>
       {#each filteredRequests as req}
         <tr>
+          <td>
+            {#if req.reference_image}
+              <img
+                src={req.reference_image}
+                alt="Referensi"
+                class="table-img"
+              />
+            {:else}
+              <span class="no-img">No Image</span>
+            {/if}
+          </td>
           <td class="mono">{req.custom_request_id}</td>
           <td
             >{new Date(req.created_at).toLocaleDateString("id-ID", {
@@ -218,11 +227,6 @@
               year: "numeric",
             })}</td
           >
-          <td>
-            <div class="text-truncate" style="max-width: 250px;">
-              {req.request_description}
-            </div>
-          </td>
           <td>Rp {req.negotiated_price?.toLocaleString("id-ID")}</td>
           <td
             ><span class="badge {req.request_status}">{req.request_status}</span
@@ -256,7 +260,7 @@
                 </button>
               {/if}
 
-              {#if req.request_status === "accepted"}
+              {#if req.request_status === "processing" && req.payment_status == "paid"}
                 <button
                   on:click={() => sendShipmentProof(req.custom_request_id)}
                   class="btn-icon btn-ship"
@@ -276,34 +280,49 @@
 {#if showDetailModal}
   <div class="modal-backdrop" on:click={closeDetailModal}>
     <div class="modal-box" on:click|stopPropagation>
-      
       <div class="modal-header-detail">
         <h3>Detail Permintaan Kustom</h3>
-        <button class="btn-close-detail" on:click={closeDetailModal}>&times;</button>
+        <button class="btn-close-detail" on:click={closeDetailModal}
+          >&times;</button
+        >
       </div>
 
       <div class="modal-body-detail">
         {#if modalLoading}
           <p class="center-text">Sedang memuat detail data...</p>
         {:else if requestMain}
-          
           <div class="info-summary">
-            <p><strong>ID Permintaan:</strong> <span class="mono">{requestMain.custom_request_id}</span></p>
             <p>
-              <strong>Status Proyek:</strong> 
-              <span class="badge {requestMain.request_status}">{requestMain.request_status}</span>
+              <strong>ID Permintaan:</strong>
+              <span class="mono">{requestMain.custom_request_id}</span>
             </p>
             <p>
-              <strong>Status Pembayaran:</strong> 
+              <strong>Status Proyek:</strong>
+              <span class="badge {requestMain.request_status}"
+                >{requestMain.request_status}</span
+              >
+            </p>
+            <p>
+              <strong>Status Pembayaran:</strong>
               <span class="badge {requestMain.payment_status || 'unpaid'}">
-                {requestMain.payment_status || 'Belum Bayar'}
+                {requestMain.payment_status || "Belum Bayar"}
               </span>
             </p>
-            <p><strong>Tanggal Masuk:</strong> {new Date(requestMain.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+            <p>
+              <strong>Tanggal Masuk:</strong>
+              {new Date(requestMain.created_at).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
           </div>
 
           <div style="margin-bottom: 15px;">
-            <label style="font-weight: bold; display: block; margin-bottom: 5px;">Deskripsi Permintaan:</label>
+            <label
+              style="font-weight: bold; display: block; margin-bottom: 5px;"
+              >Deskripsi Permintaan:</label
+            >
             <div class="desc-text-box">
               {requestMain.request_description}
             </div>
@@ -311,28 +330,51 @@
 
           <div class="total-bar">
             <span>Harga Kesepakatan / Negosiasi:</span>
-            <span>Rp {requestMain.negotiated_price?.toLocaleString("id-ID")}</span>
+            <span
+              >Rp {requestMain.negotiated_price?.toLocaleString("id-ID")}</span
+            >
           </div>
 
+          <h4>Foto Referensi Produk:</h4>
+            {#if requestMain?.reference_image}
+              <img src={requestMain.reference_image} alt="Referensi Desain" class="img-proof" />
+            {:else}
+              <p class="no-proof">Tidak menyertakan gambar acuan desain.</p>
+            {/if}
+
           <div class="shipping-proof-section">
-            <label style="font-weight: bold; display: block;">Bukti Hasil / Pengiriman:</label>
+            <label style="font-weight: bold; display: block;"
+              >Bukti Hasil / Pengiriman:</label
+            >
             {#if requestMain.shipment_proof_image}
-              <img src={requestMain.shipment_proof_image} alt="Bukti Pengiriman" class="img-proof" />
+              <img
+                src={requestMain.shipment_proof_image}
+                alt="Bukti Pengiriman"
+                class="img-proof"
+              />
               {#if requestMain.shipped_at}
                 <p style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">
-                  Dikirim pada: {new Date(requestMain.shipped_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  Dikirim pada: {new Date(
+                    requestMain.shipped_at,
+                  ).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
               {/if}
             {:else}
               <p class="no-proof">Belum ada bukti pengerjaan yang diunggah.</p>
             {/if}
           </div>
-
         {:else}
-          <p class="center-text" style="color: #ef4444;">Gagal memuat data detail proyek.</p>
+          <p class="center-text" style="color: #ef4444;">
+            Gagal memuat data detail proyek.
+          </p>
         {/if}
       </div>
-
     </div>
   </div>
 {/if}
@@ -576,11 +618,12 @@
     background: #fff3cd;
     color: #856404;
   }
-  .accepted {
+  .accepted,
+  .processing {
     background: #cce5ff;
     color: #004085;
   }
-  .paid {
+  .paid,.completed {
     background: #d4edda;
     color: #155724;
   }
@@ -588,6 +631,13 @@
     background: #e2e8f0;
     color: #475569;
   }
+  .table-img {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    display: block;
+  }
+  .img-proof { width: 100%; max-height: 220px; object-fit: contain; border: 1px solid #000; margin-top: 8px; background: #fafafa; }
   @keyframes fadeIn {
     from {
       opacity: 0;

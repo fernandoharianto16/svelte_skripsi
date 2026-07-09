@@ -21,7 +21,7 @@
         try {
             isLoading = true;
             // Gunakan productId yang ditangkap dari parameter URL
-            const res = await api.get(`/buyer/products/${productId}`);
+            const res = await api.get(`/products/${productId}`);
             product = res.data.data;
 
             // console.log("ID yang terbaca dari URL:", productId);

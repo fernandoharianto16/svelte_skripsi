@@ -4,6 +4,8 @@
   import { auth } from "$lib/firebase";
   import { onAuthStateChanged } from "firebase/auth";
   import Swal from "sweetalert2";
+  // import Chat from "$lib/components/Chat.svelte";
+  import { goto } from "$app/navigation";
 
   // State Utama Daftar Order
   let orders = [];
@@ -41,27 +43,26 @@
     modalLoading = true;
     try {
       const res = await api.get(`/buyer/orders/${orderId}`);
-      
-      console.log("Data asli dari backend:", res.data);
-      
+
+      // console.log("Data asli dari backend:", res.data);
+
       // Ambil datanya ke dalam variabel lokal terlebih dahulu
       const dataRespons = res.data;
-      
+
       if (dataRespons && dataRespons.order) {
         // Ambil objek order utama
         orderMain = dataRespons.order;
-        
+
         // Ambil array details secara aman, beri fallback array kosong jika null/undefined
         const listDetail = dataRespons.details || [];
-        
+
         // Iterasi/petakan ulang datanya ke orderItems agar Svelte mendeteksi array baru
         orderItems = [...listDetail];
-        
-        console.log("orderItems berhasil diisi & direfresh:", orderItems);
+
+        // console.log("orderItems berhasil diisi & direfresh:", orderItems);
       } else {
         console.error("Struktur data tidak sesuai:", dataRespons);
       }
-      
     } catch (err) {
       console.error("Gagal mengambil detail:", err);
       Swal.fire("Gagal", "Tidak dapat mengambil detail pesanan", "error");
@@ -91,12 +92,20 @@
     if (!result.isConfirmed) return;
 
     try {
-      await api.patch(`/buyer/orders/${orderId}/status`, { status: "completed" });
-      orders = orders.map((o) => o.id === orderId ? { ...o, order_status: "completed" } : o);
+      await api.patch(`/buyer/orders/${orderId}/status`, {
+        status: "completed",
+      });
+      orders = orders.map((o) =>
+        o.id === orderId ? { ...o, order_status: "completed" } : o,
+      );
       Swal.fire("Terima Kasih!", "Pesanan Anda telah selesai.", "success");
     } catch (error) {
       console.error(error);
-      Swal.fire("Gagal!", "Terjadi kesalahan saat mengonfirmasi pesanan.", "error");
+      Swal.fire(
+        "Gagal!",
+        "Terjadi kesalahan saat mengonfirmasi pesanan.",
+        "error",
+      );
     }
   }
 
@@ -126,12 +135,26 @@
 
       window.snap.pay(token, {
         onSuccess: async function () {
-          orders = orders.map((o) => o.id === orderId ? { ...o, payment_status: "paid", order_status: "processing" } : o);
-          Swal.fire("Pembayaran Berhasil!", "Terima kasih telah berbelanja.", "success");
+          orders = orders.map((o) =>
+            o.id === orderId
+              ? { ...o, payment_status: "paid", order_status: "processing" }
+              : o,
+          );
+          Swal.fire(
+            "Pembayaran Berhasil!",
+            "Terima kasih telah berbelanja.",
+            "success",
+          );
           await api.post(`/payments/update/${orderId}`);
         },
-        onPending: () => Swal.fire("Menunggu Pembayaran", "Silakan selesaikan pembayaran Anda.", "info"),
-        onError: () => Swal.fire("Gagal", "Pembayaran gagal diproses.", "error"),
+        onPending: () =>
+          Swal.fire(
+            "Menunggu Pembayaran",
+            "Silakan selesaikan pembayaran Anda.",
+            "info",
+          ),
+        onError: () =>
+          Swal.fire("Gagal", "Pembayaran gagal diproses.", "error"),
       });
     } catch (error) {
       console.error("Error pembayaran:", error);
@@ -142,7 +165,9 @@
 
 <svelte:head>
   <title>Daftar Pesanan</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </svelte:head>
+
 
 <div class="header">
   <h1>Daftar Pesanan Saya</h1>
@@ -150,7 +175,14 @@
 
 <div class="back-navigation">
   <a href="/buyer/product" class="btn-back">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+    >
       <line x1="19" y1="12" x2="5" y2="12"></line>
       <polyline points="12 19 5 12 12 5"></polyline>
     </svg>
@@ -166,7 +198,7 @@
 {#if loading}
   <p>Loading...</p>
 {:else if orders.length === 0}
-  <p>Tidak ada produk</p>
+  <p>Tidak ada pesanan</p>
 {:else}
   <table border="1" cellpadding="8">
     <thead>
@@ -183,26 +215,75 @@
       {#each orders as order}
         <tr>
           <td>{order.id}</td>
-          <td>{new Date(order.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</td>
+          <td
+            >{new Date(order.created_at).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}</td
+          >
           <td>Rp {order.total_price.toLocaleString()}</td>
-          <td><span class="badge {order.payment_status}">{order.payment_status}</span></td>
-          <td><span class="badge {order.order_status}">{order.order_status}</span></td>
+          <td
+            ><span class="badge {order.payment_status}"
+              >{order.payment_status}</span
+            ></td
+          >
+          <td
+            ><span class="badge {order.order_status}">{order.order_status}</span
+            ></td
+          >
           <td class="action-cell">
             <div class="action-wrapper">
-              <button type="button" on:click={() => openDetailModal(order.id)} class="btn-icon btn-view" title="Detail">
+              <!-- <button
+                type="button"
+                on:click={() => openDetailModal(order.id)}
+                class="btn-icon btn-view"
+                title="Detail"
+              >
+                <i class="bi bi-eye"></i>
+              </button> -->
+              <button
+                type="button"
+                on:click={() => goto(`/buyer/orders/${order.id}`)}
+                class="btn-icon btn-view"
+                title="Detail"
+              >
                 <i class="bi bi-eye"></i>
               </button>
 
               {#if order.payment_status === "pending" && order.order_status === "taken"}
-                <button on:click={() => payOrder(order.id)} class="btn-icon btn-pay" title="Bayar Sekarang">
+                <button
+                  on:click={() => payOrder(order.id)}
+                  class="btn-icon btn-pay"
+                  title="Bayar Sekarang"
+                >
                   <i class="bi bi-wallet2"></i>
                 </button>
               {/if}
 
               {#if order.order_status === "shipped"}
-                <button on:click={() => completeOrder(order.id)} class="btn-icon btn-finish" title="Terima Barang">
+                <button
+                  on:click={() => completeOrder(order.id)}
+                  class="btn-icon btn-finish"
+                  title="Terima Barang"
+                >
                   <i class="bi bi-check-square"></i>
                 </button>
+              {/if}
+              {#if order.order_status === 'completed' && !order.is_reviewed}
+                <a href="/buyer/review/{order.id}" class="btn-review" title="Beri Ulasan">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                  </svg>
+                  <span>Ulas</span>
+                </a>
+              {:else if order.order_status === 'completed' && order.is_reviewed}
+                <span class="badge-reviewed" title="Sudah Diulas">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                  </svg>
+                  <span>Selesai</span>
+                </span>
               {/if}
             </div>
           </td>
@@ -225,8 +306,14 @@
           <p class="center-text">Sedang memuat data...</p>
         {:else}
           <div class="info-summary">
-            <p><strong>Order ID:</strong> <span class="mono">{selectedOrderId}</span></p>
-            <p><strong>Status Pesanan:</strong> <span class="status-badge">{orderMain?.order_status}</span></p>
+            <p>
+              <strong>Order ID:</strong>
+              <span class="mono">{selectedOrderId}</span>
+            </p>
+            <p>
+              <strong>Status Pesanan:</strong>
+              <span class="status-badge">{orderMain?.order_status}</span>
+            </p>
           </div>
 
           <h4>Daftar Item:</h4>
@@ -234,22 +321,33 @@
             {#each orderItems as item}
               <li>
                 <span>{item.product_name_at_purchase} (x{item.quantity})</span>
-                <strong>Rp {(item.product_price_at_purchase * item.quantity).toLocaleString("id-ID")}</strong>
+                <strong
+                  >Rp {(
+                    item.product_price_at_purchase * item.quantity
+                  ).toLocaleString("id-ID")}</strong
+                >
               </li>
             {/each}
           </ul>
 
           <div class="total-bar">
             <span>Total Pembayaran:</span>
-            <strong>Rp {orderMain?.total_price?.toLocaleString("id-ID")}</strong>
+            <strong>Rp {orderMain?.total_price?.toLocaleString("id-ID")}</strong
+            >
           </div>
 
           <div class="shipping-proof-section">
             <h4>Bukti Pengiriman:</h4>
             {#if orderMain?.shipment_proof}
-              <img src={orderMain.shipment_proof} alt="Bukti Resi" class="img-proof" />
+              <img
+                src={orderMain.shipment_proof}
+                alt="Bukti Resi"
+                class="img-proof"
+              />
             {:else}
-              <p class="no-proof">Penjual belum mengunggah bukti pengiriman resmi.</p>
+              <p class="no-proof">
+                Penjual belum mengunggah bukti pengiriman resmi.
+              </p>
             {/if}
           </div>
         {/if}
@@ -260,60 +358,308 @@
 
 <style>
   /* CONFIG MODAL POPUP */
-  .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-  .modal-box { background: white; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); overflow: hidden; animation: fadeIn 0.2s ease-out; }
-  .modal-header { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; }
-  .modal-header h3 { margin: 0; font-size: 1.2rem; color: #1e293b; }
-  .btn-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8; }
-  .btn-close:hover { color: #1e293b; }
-  .modal-body { padding: 20px; max-height: 75vh; overflow-y: auto; }
-  .info-summary { background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem; }
-  .mono { font-family: monospace; color: #475569; }
-  .item-list { list-style: none; padding: 0; margin: 0 0 15px 0; }
-  .item-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; font-size: 0.95rem; }
-  .total-bar { display: flex; justify-content: space-between; background: #f0fdf4; padding: 12px; border-radius: 6px; color: #16a34a; font-weight: bold; margin-bottom: 20px; }
-  .shipping-proof-section { border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 15px; }
-  .img-proof { width: 100%; max-height: 200px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; margin-top: 8px; background: #fafafa; }
-  .no-proof { font-size: 0.9rem; color: #94a3b8; font-style: italic; margin-top: 5px; }
-  .center-text { text-align: center; color: #64748b; }
-  .status-badge { background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; text-transform: uppercase; }
-  @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+  }
+  .modal-box {
+    background: white;
+    width: 90%;
+    max-width: 500px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    animation: fadeIn 0.2s ease-out;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #1e293b;
+  }
+  .btn-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #94a3b8;
+  }
+  .btn-close:hover {
+    color: #1e293b;
+  }
+  .modal-body {
+    padding: 20px;
+    max-height: 75vh;
+    overflow-y: auto;
+  }
+  .info-summary {
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 0.95rem;
+  }
+  .mono {
+    font-family: monospace;
+    color: #475569;
+  }
+  .item-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 15px 0;
+  }
+  .item-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e2e8f0;
+    font-size: 0.95rem;
+  }
+  .total-bar {
+    display: flex;
+    justify-content: space-between;
+    background: #f0fdf4;
+    padding: 12px;
+    border-radius: 6px;
+    color: #16a34a;
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+  .shipping-proof-section {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 15px;
+    margin-top: 15px;
+  }
+  .img-proof {
+    width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    margin-top: 8px;
+    background: #fafafa;
+  }
+  .no-proof {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    font-style: italic;
+    margin-top: 5px;
+  }
+  .center-text {
+    text-align: center;
+    color: #64748b;
+  }
+  .status-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 
   /* CONFIG ACTION CELL & BUTTON SESUAI GAMBAR */
-  .action-cell { width: 150px; text-align: center; vertical-align: middle; }
-  .action-wrapper { display: flex; justify-content: space-evenly; align-items: center; width: 100%; gap: 6px; }
-  .action-wrapper button { flex: 1; height: 42px; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
-  .action-wrapper button:hover { filter: brightness(0.9); }
-  .action-wrapper button i { font-size: 22px; }
+  .action-cell {
+    width: 150px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .action-wrapper {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+  }
+  .action-wrapper button {
+    flex: 1;
+    height: 42px;
+    border: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .action-wrapper button:hover {
+    filter: brightness(0.9);
+  }
+  .action-wrapper button i {
+    font-size: 22px;
+  }
 
   /* WARNA SEPERTI DI GAMBAR CONTOH */
-  .btn-view { background-color: #84b2f8 !important; }
-  .btn-view i { color: #0d6efd !important; } /* Icon mata biru tua di atas background biru muda */
+  .btn-view {
+    background-color: #84b2f8 !important;
+  }
+  .btn-view i {
+    color: #0d6efd !important;
+  } /* Icon mata biru tua di atas background biru muda */
 
-  .btn-pay { background-color: #ffd895 !important; }
-  .btn-pay i { color: #212529 !important; } /* Icon dompet gelap di atas background kuning muda */
+  .btn-pay {
+    background-color: #ffd895 !important;
+  }
+  .btn-pay i {
+    color: #212529 !important;
+  } /* Icon dompet gelap di atas background kuning muda */
 
-  .btn-finish { background-color: rgb(88, 209, 99) !important; }
-  .btn-finish i { color: #2b1e20 !important; } /* Icon centang merah di atas background merah muda */
+  .btn-finish {
+    background-color: rgb(88, 209, 99) !important;
+  }
+  .btn-finish i {
+    color: #2b1e20 !important;
+  } /* Icon centang merah di atas background merah muda */
 
   /* GAYA NAVIGASI & TABEL UTAMA */
-  .back-navigation { margin-bottom: 20px; }
-  .btn-back { display: inline-flex; align-items: center; gap: 8px; color: #4b5563; text-decoration: none; font-size: 0.95rem; font-weight: 500; transition: color 0.2s ease; }
-  .btn-back:hover { color: #2563eb; }
-  h1 { margin-bottom: 20px; }
-  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-  th { background: #f0f0f0; }
-  .search-box { display: flex; align-items: center; gap: 8px; width: 300px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; background: #fff; margin-bottom: 10px; }
-  .search-box input { border: none; outline: none; flex: 1; font-size: 14px; }
+  .back-navigation {
+    margin-bottom: 20px;
+  }
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #4b5563;
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+  .btn-back:hover {
+    color: #2563eb;
+  }
+  h1 {
+    margin-bottom: 20px;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+  }
+  th {
+    background: #f0f0f0;
+  }
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 300px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    margin-bottom: 10px;
+  }
+  .search-box input {
+    border: none;
+    outline: none;
+    flex: 1;
+    font-size: 14px;
+  }
 
   /* BADGE STATUS */
-  .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; text-transform: capitalize; }
-  .pending { background: #fff3cd; color: #856404; }
-  .paid { background: #d4edda; color: #155724; }
-  .processing, .taken { background: #cce5ff; color: #004085; }
-  .shipped { background: #ffffff; color: #155724; }
-  .rejected { background: #f8d7da; color: #721c24; }
-  .completed { background: #d4edda; color: #155724; }
+  .badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: capitalize;
+  }
+  .pending {
+    background: #fff3cd;
+    color: #856404;
+  }
+  .paid {
+    background: #d4edda;
+    color: #155724;
+  }
+  .processing,
+  .taken {
+    background: #cce5ff;
+    color: #004085;
+  }
+  .shipped {
+    background: #ffffff;
+    color: #155724;
+  }
+  .rejected,.canceled {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  .completed {
+    background: #d4edda;
+    color: #155724;
+  }
+  .btn-review {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px; /* Sesuaikan padding ini dengan tombol mata Anda */
+    background-color: #e3f2fd; /* Warna latar belakang lembut (bisa diganti #fff3cd jika ingin kekuningan) */
+    color: #ff9800; /* Warna teks & ikon (Oranye/Emas) */
+    border: 1px solid #ffb74d; /* Border tipis berwarna oranye */
+    border-radius: 6px; /* Membuat sudut tumpul kotak */
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .btn-review:hover {
+    background-color: #ffb74d;
+    color: white;
+  }
+
+  /* Styling ketika Sudah Diulas (Dibuat flat/disabled agar tidak bisa diklik lagi) */
+  .badge-reviewed {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background-color: #e8f5e9; /* Latar belakang hijau lembut */
+    color: #2e7d32; /* Teks hijau tanda sukses */
+    border: 1px solid #a5d6a7;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
 </style>

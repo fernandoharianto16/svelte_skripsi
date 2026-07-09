@@ -87,6 +87,7 @@ router.post('/', verifyToken, async (req, res) => {
             nama: emailInput.split('@')[0],
             role: roleSelected || 'customer', // Default role jika kosong
             poin: 0,
+            sp_count:0,
             status: true,
             created_at: new Date().toISOString(), // Simpan format waktu standar
             updated_at: new Date().toISOString()

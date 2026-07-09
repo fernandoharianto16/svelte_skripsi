@@ -1,15 +1,17 @@
 <script>
   import { auth } from "../../../lib/firebase.js";
-  import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+  import { signInWithEmailAndPassword, updateProfile } from "firebase/auth"; // Membersihkan signOut
   import api from "$lib/api/axios";
   import { goto } from "$app/navigation";
+  import Swal from "sweetalert2";
+  import { signOut } from "firebase/auth";
+  import { onMount } from "svelte";
 
   let email = "";
   let password = "";
 
   let isLoading = false;
-  let isSuccess = false;
-  let errors = {};
+  let errors = {}; // Membersihkan isSuccess
 
   const handleSubmit = async () => {
     errors = {};
@@ -19,46 +21,54 @@
     if (password.length === 0) {
       errors.password = "Field tidak boleh kosong";
     }
+    
     if (Object.keys(errors).length === 0) {
       isLoading = true;
       try {
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password,
-        );
-        const user = userCredential.user;
+        // 1. Lakukan autentikasi awal ke Firebase Auth
+        await signInWithEmailAndPassword(auth, email, password); 
+        
+        // 2. Ambil data profil pengguna dari database melalui backend Anda
         const userLogin = await api.get("/users/me");
-        console.log(userLogin);
-        if (userLogin.data.role == "buyer") {
-          await goto('/buyer/product');
-        } else if (userLogin.data.role == "seller") {
-          await goto('/seller/product');
+
+        // 🌟 VALIDASI BLOKIR: Cek apakah status dari database bernilai false atau tidak aktif
+        if (userLogin.data.status === false) {
+          // Paksa logout dari Firebase Auth agar sesi token tidak tersimpan di browser
+          await signOut(auth);
+
+          // Tampilkan pesan penolakan tegas lewat SweetAlert2
+          await Swal.fire({
+            title: "Akses Ditolak!",
+            text: "Akun Anda telah ditangguhkan atau diblokir karena pelanggaran ketentuan.",
+            icon: "error",
+            timer: 2000, // Alert akan muncul selama 2.5 detik
+            timerProgressBar: true, // Menampilkan bar waktu berjalan di bawah alert
+            showConfirmButton: false, // Menghilangkan tombol "OK/Mengerti" agar fokus pada timer
+          });
+          location.reload();
+          errors.error = "Akun ini telah diblokir.";
+          return; // Hentikan fungsi di sini agar tidak lanjut mengarahkan (redirect) ke halaman dashboard
         }
 
-        // const user = userCredential.user;
-        // const token = await user.getIdToken();
-        // console.log("Kamu Berhasil Login!", user);
-        // console.log("UID:", user.uid);
+        // 3. Jika status lolos (true), lanjutkan proses login seperti biasa
+        await Swal.fire({
+          title: "Login Berhasil",
+          text: "Selamat datang kembali!",
+          icon: "success",
+          timer: 1500,
+          timerProgressBar: true,
+          showConfirmButton: false,
+        });
 
-        // WAJIB: ambil token
-        // const token = await user.getIdToken();
-        // console.log("TOKEN:", token);
-
-        // Simpan token (biar bisa dipakai request berikutnya)
-        // localStorage.setItem("token", token);
-
-        // Ambil data user dari backend
-
-        //   headers: {
-        //     Authorization: `Bearer ${token}`,
-        //   },
-        // });
-
-        // console.log("Data user dari backend:", response.data);
-
-        isSuccess = true;
+        if (userLogin.data.role == "buyer") {
+          await goto("/buyer/product");
+        } else if (userLogin.data.role == "seller") {
+          await goto("/seller/product");
+        } else if (userLogin.data.role == "admin") {
+          await goto("/admin/revenue");
+        }
       } catch (error) {
+        console.error("Login error:", error);
         if (
           error.code === "auth/invalid-credential" ||
           error.code === "auth/user-not-found" ||
@@ -66,7 +76,7 @@
         ) {
           errors.error = "Email atau password salah.";
         } else {
-          errors.error = "Terjadi kesalahan, silakan coba lagi.";
+          errors.error = error.response?.data?.message || "Terjadi kesalahan, silakan coba lagi.";
         }
       } finally {
         isLoading = false;
@@ -81,44 +91,36 @@
 
 <div class="container">
   <form on:submit|preventDefault={handleSubmit}>
-    {#if isSuccess}
-      <div class="success">
-        🔓<br />
-        You've been successfully logged in.
-      </div>
-    {:else}
-      <h1>Login</h1>
-      <h1>👤</h1>
+    <h1>Login</h1>
+    <h1>👤</h1>
 
-      <label for="email">Email</label>
-      <input
-        name="email"
-        id="email"
-        placeholder="name@example.com"
-        bind:value={email}
-        autocomplete="email"
-      />
+    <label for="email">Email</label>
+    <input
+      name="email"
+      id="email"
+      placeholder="name@example.com"
+      bind:value={email}
+      autocomplete="email"
+    />
 
-      <label for="password">Password</label>
-      <input
-        name="password"
-        id="password"
-        type="password"
-        bind:value={password}
-        autocomplete="current-password"
-      />
+    <label for="password">Password</label>
+    <input
+      name="password"
+      id="password"
+      type="password"
+      bind:value={password}
+      autocomplete="current-password"
+    />
 
-      <button type="submit">
-        {#if isLoading}Logging in...{:else}Log in 🔒{/if}
-      </button>
+    <button type="submit" disabled={isLoading}>
+      {#if isLoading}Logging in...{:else}Log in 🔒{/if}
+    </button>
 
-      {#if Object.keys(errors).length > 0}
-        <ul class="errors">
-          {#each Object.keys(errors) as field}
-            <li>{field}: {errors[field]}</li>
-          {/each}
-        </ul>
-      {/if}
+    {#if Object.keys(errors).length > 0}
+      <ul class="errors">
+        {#each Object.keys(errors) as field}
+          <li>{errors[field]}</li> {/each}
+      </ul>
     {/if}
   </form>
 </div>
@@ -179,9 +181,14 @@
     justify-content: center;
   }
 
-  button:hover {
+  button:hover:not(:disabled) {
     transform: translateY(-2.5px);
     box-shadow: 0px 1px 10px 0px rgba(0, 0, 0, 0.1);
+  }
+
+  button:disabled {
+    background: #666;
+    cursor: not-allowed;
   }
 
   h1 {
@@ -200,10 +207,6 @@
     width: 100%;
     border-radius: 5px;
   }
-
-  .success {
-    font-size: 24px;
-    text-align: center;
-    color: green;
-  }
+  
+  /* Class .success dihapus karena style-nya sudah tidak terpakai */
 </style>

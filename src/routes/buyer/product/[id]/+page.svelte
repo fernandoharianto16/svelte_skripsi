@@ -1,22 +1,64 @@
 <script>
     import { page } from "$app/stores";
-    import { goto } from "$app/navigation"; // Ditambahkan untuk navigasi ke login
+    import { goto } from "$app/navigation"; 
     import api from "$lib/api/axios";
     import ProductForm from "$lib/components/ProductForm.svelte";
-    import { getAuth } from "firebase/auth";
-    import { addToCart } from "$lib/stores/cartStore"; // 1. Import fungsi store baru
+    import { getAuth, onAuthStateChanged } from "firebase/auth"; // 👈 Ditambahkan onAuthStateChanged
+    import { onMount } from "svelte"; // 👈 Ditambahkan onMount
+    import { addToCart } from "$lib/stores/cartStore"; 
     import Swal from "sweetalert2";
-    // Mengambil ID langsung dari URL tanpa +page.js
-    $: id = $page.params.id;
+    
+    import FloatingChat from "$lib/components/FloatingChat.svelte"; 
 
+    $: id = $page.params.id;
+    let productReviews = [];
     let product = null;
     let loading = true;
     let error = null;
     let dataDetailProduk = {};
-    let isSubmittingCart = false; // State untuk loading tombol keranjang
+    let isSubmittingCart = false; 
 
     let offerPrice = 0;
     let showNegoModal = false;
+    let isChatOpen = false;
+    let averageRating = 0;
+    let totalReviews = 0;
+
+    // Reactive statement: Otomatis menghitung ulang saat data productReviews berubah
+    $: if (productReviews && productReviews.length > 0) {
+        totalReviews = productReviews.length;
+        
+        // Menjumlahkan semua nilai rating yang ada di dalam array ulasan
+        const totalScore = productReviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+        
+        // Menghitung rata-rata dan membatasi hanya 1 angka di belakang koma (misal: 4.7)
+        averageRating = parseFloat((totalScore / totalReviews).toFixed(1)); 
+    } else {
+        totalReviews = 0;
+        averageRating = 0;
+    }
+    
+    // 1. State pengunci agar API tidak menembak sebelum Firebase siap
+    let isAuthReady = false; 
+
+    // 2. Gunakan onMount untuk memantau kesiapan Firebase Auth sebelum memuat produk
+    onMount(() => {
+        const auth = getAuth();
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            isAuthReady = true;
+            
+            // Jika user login, pastikan token paling segar disuntikkan ke Axios Interceptor
+            if (user) {
+                const token = await user.getIdToken();
+                api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            }
+            
+            // Trigger load data jika ID produk sudah tersedia dari URL
+            if (id) loadDetailProduct();
+        });
+
+        return unsubscribe;
+    });
 
     async function submitNego() {
         const userLogin = getAuth().currentUser;
@@ -26,13 +68,9 @@
                 product_name: product.product_name,
                 seller_id: product.seller_id,
                 offered_price: offerPrice,
-                buyer_id:userLogin.uid,
+                buyer_id: userLogin.uid,
                 status: "pending",
             });
-            // console.log(userLogin);
-            // console.log(product.id);
-            // console.log(product.seller_id);
-            // console.log(offerPrice);
             Swal.fire(
                 "Berhasil",
                 "Tawaran Anda telah dikirim ke penjual!, Silahkan lanjutkan di halaman Negosiasi",
@@ -43,6 +81,7 @@
             Swal.fire("Gagal", "Tidak dapat mengirim tawaran.", "error");
         }
     }
+    
     function openNegoModal() {
         showNegoModal = true;
     }
@@ -52,42 +91,46 @@
     }
 
     async function loadDetailProduct() {
-        if (!id) return;
+        if (!id || !isAuthReady) return;
 
         loading = true;
+        error = null;
         try {
-            const res = await api.get(`/buyer/products/${id}`);
-            product = res.data.data;
+            // Panggil API Produk dan API Review Produk secara bersamaan (Parallel)
+            // Catatan: Pastikan backend Anda punya endpoint GET /buyer/reviews/product/:product_id
+            const [productRes, reviewsRes] = await Promise.all([
+                api.get(`/buyer/products/${id}`),
+                api.get(`/buyer/products/review/${id}`).catch(() => ({ data: [] })) // Fallback aman jika belum ada ulasan
+            ]);
+
+            product = productRes.data.data;
             dataDetailProduk = product;
+            
+            // Simpan data ulasan dari backend
+            productReviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : [];
+            // console.log("=== DEBUG REVIEWS PRODUCT ===", productReviews);
+
         } catch (err) {
-            error = "Gagal memuat produk";
+            if (err.response?.status === 401) {
+                error = "Sesi Anda telah habis atau tidak sah. Silakan login kembali.";
+                triggerLoginAlert();
+            } else {
+                error = "Gagal memuat produk";
+            }
             console.error(err);
         } finally {
             loading = false;
         }
     }
 
-    // Jalankan fetch saat ID berubah
-    $: if (id) loadDetailProduct();
+    // 3. Modifikasi reactive statement agar menunggu id DAN kesiapan auth berkas Firebase
+    $: if (id && isAuthReady) loadDetailProduct();
 
-    // Fungsi Pesan Sekarang (Langsung transaksi/lewat backend)
     async function handlePesan(productId) {
         const userLogin = getAuth().currentUser;
 
         if (!userLogin) {
-            Swal.fire({
-                title: "Belum Login",
-                text: "Silakan login terlebih dahulu untuk memesan produk.",
-                icon: "warning",
-                confirmButtonColor: "#2ecc71",
-                confirmButtonText: "Login Sekarang",
-                showCancelButton: true,
-                cancelButtonText: "Batal",
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    goto("/login");
-                }
-            });
+            triggerLoginAlert();
             return;
         }
 
@@ -108,42 +151,24 @@
             console.error("Gagal melakukan pemesanan:", err);
             Swal.fire({
                 title: "Gagal Memesan",
-                text:
-                    err.response?.data?.message ||
-                    "Terjadi kesalahan pada server, silakan coba lagi.",
+                text: err.response?.data?.message || "Terjadi kesalahan pada server, silakan coba lagi.",
                 icon: "error",
                 confirmButtonColor: "#dc3545",
             });
         }
     }
 
-    // Fungsi Tambah Ke Keranjang (Murni Frontend / LocalStorage)
     async function handleTambahCart() {
         const userLogin = getAuth().currentUser;
 
         if (!userLogin) {
-            Swal.fire({
-                title: "Belum Login",
-                text: "Silakan login terlebih dahulu untuk menambahkan produk ke keranjang.",
-                icon: "warning",
-                confirmButtonColor: "#2ecc71",
-                confirmButtonText: "Login Sekarang",
-                showCancelButton: true,
-                cancelButtonText: "Batal",
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    goto("/login");
-                }
-            });
+            triggerLoginAlert();
             return;
         }
 
         isSubmittingCart = true;
-
-        // Masukkan langsung ke svelte store / localStorage
         addToCart(product, 1);
 
-        // Berikan feedback instan toast ke buyer
         Swal.fire({
             title: "Berhasil!",
             text: `${product.product_name} berhasil dimasukkan ke keranjang.`,
@@ -157,6 +182,16 @@
 
         isSubmittingCart = false;
     }
+
+    function handleChatSekarang() {
+        const userLogin = getAuth().currentUser;
+        if (!userLogin) {
+            triggerLoginAlert();
+            return;
+        }
+        isChatOpen = true;
+    }
+
 </script>
 
 <svelte:head>
@@ -171,16 +206,7 @@
     {:else if product}
         <div class="back-navigation">
             <a href="/buyer/product" class="btn-back">
-                <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="19" y1="12" x2="5" y2="12"></line>
                     <polyline points="12 19 5 12 12 5"></polyline>
                 </svg>
@@ -190,95 +216,139 @@
         <main>
             <section class="left-column">
                 <div class="product-image">
-                    <img
-                        src={product.image || product.image_url}
-                        alt={product.product_name}
-                    />
+                    <img src={product.image || product.image_url} alt={product.product_name} />
                 </div>
             </section>
             <section class="right-column">
                 <h2 class="nama-produk">{product.product_name}</h2>
                 <div class="kategori">Kategori : {product.category || "-"}</div>
                 <div class="total-penjualan">
-                    Terjual : <strong>{product.sold_count || 5}</strong> produk
+                    Terjual : <strong>{product.sold_count}</strong> produk
                 </div>
-                <!-- <div class="rating-section">
-                    <span class="stars">{"★".repeat(Math.round(product.rating || 0))}</span>
-                    <span class="rating-count">({product.reviews?.length || 0} ulasan)</span>
-                </div> -->
                 <div class="harga">
                     Rp {product.price?.toLocaleString("id-ID")}
                 </div>
-                <button
-                    type="button"
-                    class="tambah-cart"
-                    on:click={() => handlePesan(product.id)}
-                >
-                    Pesan Sekarang
-                </button>
-                <button
-                    type="button"
-                    class="tambah-cart"
-                    disabled={isSubmittingCart}
-                    on:click={handleTambahCart}
-                >
-                    {#if isSubmittingCart}
-                        Memproses...
+                <div class="rating-summary-container" style="display: flex; align-items: center; gap: 6px; margin: -5px 0 10px 0;">
+                    {#if totalReviews > 0}
+                        <div style="color: #f59e0b; font-size: 1.1rem; display: flex; gap: 2px;">
+                            {#each Array(5) as _, i}
+                                {@const starIndex = i + 1}
+                                {@const diff = averageRating - i}
+
+                                {#if diff >= 0.8}
+                                    <i class="bi bi-star-fill"></i>
+                                {:else if diff >= 0.3 && diff < 0.8}
+                                    <i class="bi bi-star-half"></i>
+                                {:else}
+                                    <i class="bi bi-star"></i>
+                                {/if}
+                            {/each}
+                        </div>
+                        <strong style="font-size: 1rem; color: #1f2937; margin-left: 4px;">{averageRating}</strong>
+                        <span style="color: #6b7280; font-size: 0.85rem;">({totalReviews} Ulasan)</span>
                     {:else}
-                        Tambah ke Keranjang
+                        <span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">Belum ada ulasan</span>
                     {/if}
-                </button>
-                <button class="tambah-cart" on:click={openNegoModal}>
-                    <i class="bi bi-tag"></i> Tawar Harga
-                </button>
+                </div>
+                <div class="action-buttons">
+                    <button type="button" class="btn-chat-sekarang" on:click={handleChatSekarang}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        Chat Sekarang
+                    </button>
+
+                    <button type="button" class="tambah-cart btn-pesan" on:click={() => handlePesan(product.id)}>
+                        Pesan Sekarang
+                    </button>
+                    
+                    <button type="button" class="tambah-cart btn-keranjang" disabled={isSubmittingCart} on:click={handleTambahCart}>
+                        {#if isSubmittingCart} Memproses... {:else} Tambah ke Keranjang {/if}
+                    </button>
+                    
+                    <button class="tambah-cart btn-tawar" on:click={openNegoModal}>
+                        <i class="bi bi-tag"></i> Tawar Harga
+                    </button>
+                </div>
+
                 {#if showNegoModal}
                     <div class="modal-backdrop">
                         <div class="modal-container">
                             <div class="modal-header">
                                 <h3>Tawar Harga</h3>
-                                <button class="close-btn" on:click={closeModal}
-                                    >&times;</button
-                                >
+                                <button class="close-btn" on:click={closeModal}>&times;</button>
                             </div>
 
                             <div class="modal-body">
-                                <p class="product-name">
-                                    Produk: <strong
-                                        >{product.product_name}</strong
-                                    >
-                                </p>
-                                <p class="price-info">
-                                    Harga Normal: <strong
-                                        >Rp {product.price.toLocaleString()}</strong
-                                    >
-                                </p>
+                                <p class="product-name">Produk: <strong>{product.product_name}</strong></p>
+                                <p class="price-info">Harga Normal: <strong>Rp {product.price.toLocaleString()}</strong></p>
 
                                 <div class="input-group">
-                                    <label for="offer"
-                                        >Masukkan Harga Penawaran (Rp)</label
-                                    >
-                                    <input
-                                        type="number"
-                                        id="offer"
-                                        bind:value={offerPrice}
-                                        placeholder="Contoh: 150000"
-                                    />
+                                    <label for="offer">Masukkan Harga Penawaran (Rp)</label>
+                                    <input type="number" id="offer" bind:value={offerPrice} placeholder="Contoh: 150000" />
                                 </div>
                             </div>
 
                             <div class="modal-footer">
-                                <button class="btn-cancel" on:click={closeModal}
-                                    >Batal</button
-                                >
-                                <button class="btn-submit" on:click={submitNego}
-                                    >Kirim Penawaran</button
-                                >
+                                <button class="btn-cancel" on:click={closeModal}>Batal</button>
+                                <button class="btn-submit" on:click={submitNego}>Kirim Penawaran</button>
                             </div>
                         </div>
                     </div>
                 {/if}
             </section>
         </main>
+        <section class="reviews-section">
+            <h3 class="reviews-title">Ulasan Pembeli ({productReviews.length})</h3>
+            
+            {#if productReviews.length === 0}
+                <div class="no-reviews">
+                    <p>Belum ada ulasan untuk produk ini.</p>
+                </div>
+            {:else}
+                <div class="reviews-list">
+                    {#each productReviews.slice(0, 3) as review}
+                        <div class="review-card">
+                            <div class="review-header">
+                                <div class="buyer-info">
+                                    <strong class="buyer-name">Pembeli #{review.buyer_id?.substring(0, 5)}...</strong>
+                                    <span class="review-date">
+                                        {new Date(review.created_at).toLocaleDateString("id-ID", {
+                                            year: "numeric", month: "long", day: "numeric"
+                                        })}
+                                    </span>
+                                </div>
+                                <div class="review-stars">
+                                    {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                                </div>
+                            </div>
+                            {#if review.comment !== ""}
+                                <p class="review-comment">
+                                    "{review.comment || "Pembeli tidak memberikan ulasan tertulis."}"
+                                </p>
+                            {/if}
+                        </div>
+                    {/each}
+
+                    {#if productReviews.length > 3}
+                        <p style="text-align: center; color: #6b7280; font-size: 0.85rem; margin-top: 10px;">
+                            Menampilkan 3 dari {productReviews.length} ulasan.
+                        </p>
+                    {/if}
+                </div>
+            {/if}
+        </section>
+
+        <FloatingChat 
+            bind:isOpen={isChatOpen} 
+            activeProductId={product.id} 
+            activeProductData={{
+                product_id: product.id,
+                title: product.product_name,
+                price: product.price,
+                image_url: product.image || product.image_url,
+                seller_id: product.seller_id,
+                seller_name: product.seller_name || "Toko Penjual" // Pastikan API mengembalikan data nama penjual
+            }} 
+        />
     {/if}
 </div>
 
@@ -448,4 +518,45 @@
     .tambah-cart:hover {
         background: #1d4ed8;
     }
+
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .btn-chat-sekarang {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
+        background-color: #fff5f3;
+        color: #ee4d2d;
+        border: 1px solid #ee4d2d;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: background-color 0.2s;
+    }
+    .btn-chat-sekarang:hover {
+        background-color: #ffeae6;
+    }
+
+    .tambah-cart {
+        padding: 12px;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    .btn-pesan { background: #2ecc71; }
+    .btn-pesan:hover { background: #27ae60; }
+    .btn-keranjang { background: #2563eb; }
+    .btn-keranjang:hover { background: #1d4ed8; }
+    .btn-tawar { background: #f59e0b; }
+    .btn-tawar:hover { background: #d97706; }
 </style>
