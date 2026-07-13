@@ -6,7 +6,7 @@ import multer from 'multer';
 import { v2 as cloudinary } from "cloudinary";
 import streamifier from "streamifier";
 import 'dotenv/config';
-import { uploadToCloudinary } from './service/uploadImageService.js';
+import { uploadToCloudinary, uploadBase64ToCloudinary } from './service/uploadImageService.js';
 
 
 const router = Router();
@@ -202,46 +202,151 @@ router.patch('/:orderId/status', verifyToken, async (req, res) => {
 });
 
 // create order by cart
+// router.post('/', verifyToken, async (req, res) => {
+//     const userId = req.user.uid;
+//     const { items } = req.body; // Menerima array items dari SvelteKit ($cart)
+
+//     // 1. Validasi awal jika data array kosong
+//     if (!items || !Array.isArray(items) || items.length === 0) {
+//         return res.status(400).json({ message: "Keranjang belanja kosong atau tidak valid" });
+//     }
+
+//     try {
+//         // Ambil daftar ID produk dari keranjang
+//         const productIds = items.map(item => item.id);
+
+//         // Ambil data produk asli dari database Firestore demi keamanan harga
+//         const productsSnapshot = await db.collection('products')
+//             .where('__name__', 'in', productIds)
+//             .get();
+
+//         if (productsSnapshot.empty) {
+//             return res.status(404).json({ message: "Produk di dalam keranjang tidak ditemukan di database" });
+//         }
+
+//         // Petakan produk dari DB ke dalam objek agar mudah diakses
+//         const dbProducts = {};
+//         productsSnapshot.forEach(doc => {
+//             dbProducts[doc.id] = { id: doc.id, ...doc.data() };
+//         });
+
+//         // 2. Ambil SELLER_ID dari produk pertama (Karena asumsinya semua produk milik seller yang sama)
+//         const firstProductId = productIds[0];
+//         const sellerId = dbProducts[firstProductId]?.seller_id;
+
+//         if (!sellerId) {
+//             return res.status(400).json({ message: "Data penjual produk tidak ditemukan atau tidak valid" });
+//         }
+
+//         // 3. Hitung TOTAL HARGA secara keseluruhan dari database asli
+//         let totalOrderPrice = 0;
+//         const processedItems = [];
+
+//         for (const item of items) {
+//             const freshProductData = dbProducts[item.id];
+//             if (!freshProductData) continue;
+
+//             const subtotal = freshProductData.price * item.quantity;
+//             totalOrderPrice += subtotal;
+
+//             // Simpan data bersih untuk kebutuhan detail transaksi nanti
+//             processedItems.push({
+//                 productId: freshProductData.id,
+//                 product_name: freshProductData.product_name,
+//                 image: freshProductData.image,
+//                 price: freshProductData.price,
+//                 quantity: item.quantity
+//             });
+//         }
+
+//         // 4. PROSES SIMPAN KE FIRESTORE (Hanya menghasilkan 1 Dokumen Order Utama)
+//         const batch = db.batch();
+//         const orderRef = db.collection('orders').doc(); // Auto-generate ID dokumen order
+
+//         const newOrder = {
+//             buyer_id: userId,
+//             seller_id: sellerId, // Langsung dimasukkan ke dokumen utama
+//             total_price: totalOrderPrice,
+//             shipment_proof: "",
+//             shipped_at: "",
+//             shipping_address: "",
+//             payment_status: 'pending',
+//             order_status: 'pending',
+//             cancel_reason: "",
+//             payment_id: "",
+//             transaction_token: "",
+//             created_at: new Date().toISOString(),
+//             updated_at: new Date().toISOString()
+//         };
+
+//         // Masukkan dokumen order utama ke dalam batch
+//         batch.set(orderRef, newOrder);
+
+//         // Masukkan setiap detail barang belanjaan ke koleksi 'order_details'
+//         processedItems.forEach(p => {
+//             const orderDetailRef = db.collection('order_details').doc();
+
+//             batch.set(orderDetailRef, {
+//                 order_id: orderRef.id, // Menghubungkan ke ID order utama di atas
+//                 product_id: p.productId,
+//                 product_image_at_purchase:p.image,
+//                 product_name_at_purchase: p.product_name,
+//                 product_price_at_purchase: p.price,
+//                 quantity: p.quantity
+//             });
+//         });
+
+//         // Eksekusi penulisan ke Firestore secara massal
+//         await batch.commit();
+
+//         // Respon balik sukses ke front-end SvelteKit
+//         return res.status(201).json({
+//             success: true,
+//             message: "Pesanan keranjang berhasil diproses",
+//             orderId: orderRef.id
+//         });
+
+//     } catch (err) {
+//         console.error("Error Backend Checkout Single Seller:", err);
+//         return res.status(500).json({ message: "Gagal memproses checkout di server" });
+//     }
+// });
+
 router.post('/', verifyToken, async (req, res) => {
     const userId = req.user.uid;
-    const { items } = req.body; // Menerima array items dari SvelteKit ($cart)
+    const { items } = req.body;
 
-    // 1. Validasi awal jika data array kosong
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ message: "Keranjang belanja kosong atau tidak valid" });
     }
 
     try {
-        // Ambil daftar ID produk dari keranjang
         const productIds = items.map(item => item.id);
 
-        // Ambil data produk asli dari database Firestore demi keamanan harga
         const productsSnapshot = await db.collection('products')
             .where('__name__', 'in', productIds)
             .get();
 
         if (productsSnapshot.empty) {
-            return res.status(404).json({ message: "Produk di dalam keranjang tidak ditemukan di database" });
+            return res.status(404).json({ message: "Produk di dalam keranjang tidak ditemukan" });
         }
 
-        // Petakan produk dari DB ke dalam objek agar mudah diakses
         const dbProducts = {};
         productsSnapshot.forEach(doc => {
             dbProducts[doc.id] = { id: doc.id, ...doc.data() };
         });
 
-        // 2. Ambil SELLER_ID dari produk pertama (Karena asumsinya semua produk milik seller yang sama)
         const firstProductId = productIds[0];
         const sellerId = dbProducts[firstProductId]?.seller_id;
 
         if (!sellerId) {
-            return res.status(400).json({ message: "Data penjual produk tidak ditemukan atau tidak valid" });
+            return res.status(400).json({ message: "Data penjual produk tidak ditemukan" });
         }
 
-        // 3. Hitung TOTAL HARGA secara keseluruhan dari database asli
         let totalOrderPrice = 0;
         const processedItems = [];
 
+        // Menggunakan FOR...OF agar proses upload gambar kustom berjalan sekuensial (bergantian)
         for (const item of items) {
             const freshProductData = dbProducts[item.id];
             if (!freshProductData) continue;
@@ -249,23 +354,34 @@ router.post('/', verifyToken, async (req, res) => {
             const subtotal = freshProductData.price * item.quantity;
             totalOrderPrice += subtotal;
 
-            // Simpan data bersih untuk kebutuhan detail transaksi nanti
+            let finalCustomImageUrl = "";
+
+            // Jika item merupakan produk kustom dan ada kiriman gambar dari pembeli
+            if (item.is_custom && item.custom_image) {
+                // Upload base64 langsung melalui SDK Cloudinary
+                finalCustomImageUrl = await uploadBase64ToCloudinary(item.custom_image, "custom_orders_references");
+            }
+
             processedItems.push({
                 productId: freshProductData.id,
                 product_name: freshProductData.product_name,
                 image: freshProductData.image,
                 price: freshProductData.price,
-                quantity: item.quantity
+                quantity: item.quantity,
+                is_custom: item.is_custom || false,
+                variants: item.variants || {},
+                custom_note: item.custom_note || "",
+                custom_image: finalCustomImageUrl
             });
         }
 
-        // 4. PROSES SIMPAN KE FIRESTORE (Hanya menghasilkan 1 Dokumen Order Utama)
+        // 4. PROSES SIMPAN KE FIRESTORE (Aktif Kembali)
         const batch = db.batch();
-        const orderRef = db.collection('orders').doc(); // Auto-generate ID dokumen order
+        const orderRef = db.collection('orders').doc(); // ID Dokumen Order Utama
 
         const newOrder = {
             buyer_id: userId,
-            seller_id: sellerId, // Langsung dimasukkan ke dokumen utama
+            seller_id: sellerId,
             total_price: totalOrderPrice,
             shipment_proof: "",
             shipped_at: "",
@@ -279,27 +395,29 @@ router.post('/', verifyToken, async (req, res) => {
             updated_at: new Date().toISOString()
         };
 
-        // Masukkan dokumen order utama ke dalam batch
         batch.set(orderRef, newOrder);
 
-        // Masukkan setiap detail barang belanjaan ke koleksi 'order_details'
+        // Masukkan detail item belanja ke koleksi 'order_details'
         processedItems.forEach(p => {
             const orderDetailRef = db.collection('order_details').doc();
 
             batch.set(orderDetailRef, {
-                order_id: orderRef.id, // Menghubungkan ke ID order utama di atas
+                order_id: orderRef.id,
                 product_id: p.productId,
-                product_image_at_purchase:p.image,
+                product_image_at_purchase: p.image,
                 product_name_at_purchase: p.product_name,
                 product_price_at_purchase: p.price,
-                quantity: p.quantity
+                quantity: p.quantity,
+                is_custom: p.is_custom,
+                variants: p.variants, // Langsung disimpan sebagai Map/Objek terstruktur di Firestore
+                custom_note: p.custom_note,
+                custom_image: p.custom_image // Berisi link URL Cloudinary permanen
             });
         });
 
-        // Eksekusi penulisan ke Firestore secara massal
+        // Eksekusi penulisan Batch ke Firestore secara massal
         await batch.commit();
 
-        // Respon balik sukses ke front-end SvelteKit
         return res.status(201).json({
             success: true,
             message: "Pesanan keranjang berhasil diproses",
@@ -311,7 +429,6 @@ router.post('/', verifyToken, async (req, res) => {
         return res.status(500).json({ message: "Gagal memproses checkout di server" });
     }
 });
-
 
 
 router.delete("/:id", verifyToken, async (req, res) => {

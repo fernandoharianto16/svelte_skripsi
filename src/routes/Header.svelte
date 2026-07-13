@@ -217,10 +217,10 @@ async function clearUnreadNotifications() {
                         <a href="/buyer/orders">Pesanan Saya</a>
                     </li>
                     <li aria-current={$page.url.pathname === "/buyer/custom_request" ? "page" : undefined}>
-                        <a href="/buyer/custom_request">Pesan Kustom</a>
+                        <a href="/buyer/custom_request">Buat Permintaan Kustom</a>
                     </li>
                     <li aria-current={$page.url.pathname === "/buyer/my_custom_request" ? "page" : undefined}>
-                        <a href="/buyer/my_custom_request">Pesanan Kustom Saya</a>
+                        <a href="/buyer/my_custom_request">Permintaan Kustom Saya</a>
                     </li>
                     <li aria-current={$page.url.pathname === "/buyer/negotiation" ? "page" : undefined}>
                         <a href="/buyer/negotiation">Negosiasi Saya</a>
@@ -230,10 +230,10 @@ async function clearUnreadNotifications() {
                         <a href="/seller/orders">Daftar Pesanan</a>
                     </li>
                     <li aria-current={$page.url.pathname === "/seller/custom_request" ? "page" : undefined}>
-                        <a href="/seller/custom_request">List Custom Order</a>
+                        <a href="/seller/custom_request">List Custom Request</a>
                     </li>
                     <li aria-current={$page.url.pathname === "/seller/my_custom_order" ? "page" : undefined}>
-                        <a href="/seller/my_custom_order">Custom Order Diambil</a>
+                        <a href="/seller/my_custom_order">Custom Request Diambil</a>
                     </li>
                     <li aria-current={$page.url.pathname === "/seller/negotiation" ? "page" : undefined}>
                         <a href="/seller/negotiation">Negosiasi Saya</a>

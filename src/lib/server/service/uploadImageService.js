@@ -24,3 +24,19 @@ export const uploadToCloudinary = (buffer, folderName) => {
         streamifier.createReadStream(buffer).pipe(stream);
     });
 };
+export const uploadBase64ToCloudinary = (base64String, folderName) => {
+    return new Promise(async (resolve, reject) => {
+        if (!base64String) return resolve("");
+        
+        try {
+            // Menggunakan uploader.upload dari instance cloudinary yang sudah terkonfigurasi di file ini
+            const result = await cloudinary.v2.uploader.upload(base64String, {
+                folder: folderName,
+                resource_type: "image"
+            });
+            resolve(result.secure_url);
+        } catch (error) {
+            reject(error);
+        }
+    });
+};

@@ -176,7 +176,7 @@
 </svelte:head>
 
 <div class="header">
-  <h1>Proyek Custom Order Saya</h1>
+  <h1>Proyek Custom Request Saya</h1>
 </div>
 
 <div class="search-box">

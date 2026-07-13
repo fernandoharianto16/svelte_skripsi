@@ -24,6 +24,12 @@
     let averageRating = 0;
     let totalReviews = 0;
 
+    let listVariasi = [];
+    let pilihanVarianPembeli = {};
+    let modeCustomAktif = false;
+    let catatanCustom = "";
+    let fileGambar = null;
+
     // Reactive statement: Otomatis menghitung ulang saat data productReviews berubah
     $: if (productReviews && productReviews.length > 0) {
         totalReviews = productReviews.length;
@@ -109,6 +115,19 @@
             // Simpan data ulasan dari backend
             productReviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : [];
             // console.log("=== DEBUG REVIEWS PRODUCT ===", productReviews);
+            // ========================================================
+            // 🌟 PROSES MAP BARU DARI FIREBASE DI SINI 🌟
+            // ========================================================
+            // Ambil objek variants, jika kosong otomatis beri objek kosong {}
+            // Potong dengan .slice(0, 2) agar maksimal hanya mengambil 2 jenis variasi
+            listVariasi = Object.entries(product.variants || {}).slice(0, 2);
+
+            // Inisialisasi object pilihan agar default-nya kosong/belum terpilih
+            pilihanVarianPembeli = {}; 
+            // ========================================================
+
+            // Simpan data ulasan dari backend
+            productReviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : [];
 
         } catch (err) {
             if (err.response?.status === 401) {
@@ -127,37 +146,116 @@
     $: if (id && isAuthReady) loadDetailProduct();
 
     async function handlePesan(productId) {
-        const userLogin = getAuth().currentUser;
+    const userLogin = getAuth().currentUser;
 
-        if (!userLogin) {
-            triggerLoginAlert();
-            return;
-        }
+    if (!userLogin) {
+        triggerLoginAlert();
+        return;
+    }
 
-        try {
-            const response = await api.post(`/products/${productId}`);
-
-            if (response.status === 200 || response.status === 201) {
-                await Swal.fire({
-                    title: "Berhasil Dipesan!",
-                    text: "Produk telah berhasil ditambahkan ke pesanan Anda.",
-                    icon: "success",
-                    timer: 2500,
-                    timerProgressBar: true,
-                    showConfirmButton: false,
+    // 🛑 VALIDASI 1: Jika mode standar, pastikan semua variasi dari backend sudah dipilih
+    if (!modeCustomAktif && listVariasi.length > 0) {
+        for (const [namaVarian] of listVariasi) {
+            if (!pilihanVarianPembeli[namaVarian]) {
+                Swal.fire({
+                    title: "Pilihan Belum Lengkap",
+                    text: `Silakan pilih ${namaVarian} terlebih dahulu sebelum memesan.`,
+                    icon: "warning",
+                    confirmButtonColor: "#4f46e5"
                 });
+                return; // Batalkan proses pesanan
             }
-        } catch (err) {
-            console.error("Gagal melakukan pemesanan:", err);
-            Swal.fire({
-                title: "Gagal Memesan",
-                text: err.response?.data?.message || "Terjadi kesalahan pada server, silakan coba lagi.",
-                icon: "error",
-                confirmButtonColor: "#dc3545",
-            });
         }
     }
 
+    // 🛑 VALIDASI 2: Jika mode custom aktif, minimal text deskripsi diisi
+    if (modeCustomAktif && !catatanCustom.trim()) {
+        Swal.fire({
+            title: "Deskripsi Kosong",
+            text: "Mohon jelaskan permintaan kustomisasi Anda pada kolom yang disediakan.",
+            icon: "warning",
+            confirmButtonColor: "#4f46e5"
+        });
+        return;
+    }
+
+    try {
+        // 🌟 GUnakan FormData karena ada potensi upload File Gambar 🌟
+        const formData = new FormData();
+        
+        // Kirim status mode pesanan
+        formData.append("is_custom", modeCustomAktif);
+
+        if (!modeCustomAktif) {
+            // Jika standar, kirim objek variasi (diubah jadi string JSON agar aman dikirim via FormData)
+            formData.append("variants", JSON.stringify(pilihanVarianPembeli));
+        } else {
+            // Jika custom, kirim teks deskripsi dan file gambar (jika ada)
+            formData.append("custom_note", catatanCustom);
+            if (fileGambar) {
+                formData.append("custom_image", fileGambar);
+            }
+        }
+
+        // Kirim FormData ke backend
+        const response = await api.post(`/products/${productId}`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data" // Wajib jika mengirim fileGambar
+            }
+        });
+
+        if (response.status === 200 || response.status === 201) {
+            await Swal.fire({
+                title: "Berhasil Dipesan!",
+                text: "Produk telah berhasil ditambahkan ke pesanan Anda.",
+                icon: "success",
+                timer: 2500,
+                timerProgressBar: true,
+                showConfirmButton: false,
+            });
+
+            // Opsional: Reset form setelah berhasil memesan
+            pilihanVarianPembeli = {};
+            catatanCustom = "";
+            fileGambar = null;
+            modeCustomAktif = false;
+        }
+    } catch (err) {
+        console.error("Gagal melakukan pemesanan:", err);
+        Swal.fire({
+            title: "Gagal Memesan",
+            text: err.response?.data?.message || "Terjadi kesalahan pada server, silakan coba lagi.",
+            icon: "error",
+            confirmButtonColor: "#dc3545",
+        });
+    }
+}
+
+    // async function handleTambahCart() {
+    //     const userLogin = getAuth().currentUser;
+
+    //     if (!userLogin) {
+    //         triggerLoginAlert();
+    //         return;
+    //     }
+
+    //     isSubmittingCart = true;
+    //     addToCart(product, 1);
+
+    //     Swal.fire({
+    //         title: "Berhasil!",
+    //         text: `${product.product_name} berhasil dimasukkan ke keranjang.`,
+    //         icon: "success",
+    //         toast: true,
+    //         position: "top-end",
+    //         showConfirmButton: false,
+    //         timer: 2500,
+    //         timerProgressBar: true,
+    //     });
+
+    //     isSubmittingCart = false;
+    // }
+    
     async function handleTambahCart() {
         const userLogin = getAuth().currentUser;
 
@@ -166,21 +264,61 @@
             return;
         }
 
+        // --- 1. VALIDASI INPUT PEMBELI ---
+        if (modeCustomAktif) {
+            // Jika mode custom aktif, pembeli wajib mengisi catatan atau mengirim gambar referensi
+            if (!catatanCustom.trim() && !fileGambar) {
+                Swal.fire("Peringatan", "Harap isi catatan custom atau unggah gambar referensi.", "warning");
+                return;
+            }
+        } else {
+            // Jika produk memiliki varian, pastikan pembeli memilih semua opsi dari objek 'product.variants'
+            if (product.variants && Object.keys(product.variants).length > 0) {
+                const jumlahVarianWajib = Object.keys(product.variants).length;
+                const jumlahVarianDipilih = Object.keys(pilihanVarianPembeli).length;
+                
+                if (jumlahVarianDipilih < jumlahVarianWajib) {
+                    Swal.fire("Peringatan", "Harap pilih variasi produk terlebih dahulu.", "warning");
+                    return;
+                }
+            }
+        }
+
         isSubmittingCart = true;
-        addToCart(product, 1);
 
-        Swal.fire({
-            title: "Berhasil!",
-            text: `${product.product_name} berhasil dimasukkan ke keranjang.`,
-            icon: "success",
-            toast: true,
-            position: "top-end",
-            showConfirmButton: false,
-            timer: 2500,
-            timerProgressBar: true,
-        });
+        // --- 2. BUNGKUS PAYLOAD DATA CART ---
+        const payloadCart = {
+            is_custom: modeCustomAktif,
+            variants: modeCustomAktif ? {} : pilihanVarianPembeli,
+            custom_note: modeCustomAktif ? catatanCustom : "",
+            custom_image_file: modeCustomAktif ? fileGambar : null 
+        };
 
-        isSubmittingCart = false;
+        try {
+            // Mengirim data ke fungsi utama addToCart
+            await addToCart(product, 1, payloadCart);
+
+            Swal.fire({
+                title: "Berhasil!",
+                text: `${product.product_name} berhasil dimasukkan ke keranjang.`,
+                icon: "success",
+                toast: true,
+                position: "top-end",
+                showConfirmButton: false,
+                timer: 2500,
+                timerProgressBar: true,
+            });
+
+            // --- 3. RESET FORM CUSTOM SETELAH BERHASIL ---
+            catatanCustom = "";
+            fileGambar = null;
+            // Pilihan varian pembeli tidak perlu direset agar dropdown tidak mendadak kosong/error di UI
+        } catch (error) {
+            console.error("Gagal menambahkan ke keranjang:", error);
+            Swal.fire("Gagal", "Terjadi kesalahan saat menyimpan ke keranjang.", "error");
+        } finally {
+            isSubmittingCart = false;
+        }
     }
 
     function handleChatSekarang() {
@@ -228,7 +366,7 @@
                 <div class="harga">
                     Rp {product.price?.toLocaleString("id-ID")}
                 </div>
-                <div class="rating-summary-container" style="display: flex; align-items: center; gap: 6px; margin: -5px 0 10px 0;">
+                <div class="rating-summary-container" style="display: flex; align-items: flex-end; gap: 6px; margin: -5px 0 10px 0;">
                     {#if totalReviews > 0}
                         <div style="color: #f59e0b; font-size: 1.1rem; display: flex; gap: 2px;">
                             {#each Array(5) as _, i}
@@ -250,6 +388,88 @@
                         <span style="color: #9ca3af; font-size: 0.85rem; font-style: italic;">Belum ada ulasan</span>
                     {/if}
                 </div>
+
+                <div class="product-customization-box" style=" padding: 15px; border: 1px dashed #ccc; border-radius: 8px; background-color: #fafafa;">
+    
+                    <!-- 1. JIKA PEMBELI MEMILIH BELI STANDAR (MODE CUSTOM NONAKTIF) -->
+                    {#if !modeCustomAktif}
+                        {#if listVariasi.length > 0}
+                            <!-- 🌟 KONTAINER FLEX BARU AGAR BERJEJER HORIZONTAL 🌟 -->
+                            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 5px;">
+                                {#each listVariasi as [namaVarian, opsiVarian]}
+                                    <!-- Set flex: 1 dan width minimal agar pembagiannya rata ke samping -->
+                                    <div class="variant-group" style="flex: 1; min-width: 140px; margin-bottom: 12px;">
+                                        <label for={namaVarian} style="display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; color: #4b5563;">
+                                            Pilih {namaVarian.charAt(0).toUpperCase() + namaVarian.slice(1)}:
+                                        </label>
+                                        <select 
+                                            id={namaVarian} 
+                                            bind:value={pilihanVarianPembeli[namaVarian]} 
+                                            style="width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background-color: white;"
+                                        >
+                                            <option value="" disabled selected>-- Pilih {namaVarian} --</option>
+                                            {#each opsiVarian.slice(0, 3) as opsi}
+                                                <option value={opsi}>{opsi}</option>
+                                            {/each}
+                                        </select>
+                                    </div>
+                                {/each}
+                            </div>
+                        {:else}
+                            <p style="font-size: 0.85rem; color: #6b7280; margin: 0;">Produk ini tidak memiliki variasi standar.</p>
+                        {/if}
+                    {/if}
+
+                    <!-- 2. SAKLAR TOMBOL UNTUK AKTIFKAN MODE CUSTOM -->
+                    {#if product.is_customable}
+                        <div style="margin-top: {modeCustomAktif ? '0' : '10px'};">
+                            <button 
+                                type="button" 
+                                style="background: none; border: 1px solid #4f46e5; color: #4f46e5; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: 500;"
+                                on:click={() => {
+                                    modeCustomAktif = !modeCustomAktif;
+                                    if(modeCustomAktif) pilihanVarianPembeli = {};
+                                    else { catatanCustom = ""; fileGambar = null; }
+                                }}
+                            >
+                                {modeCustomAktif ? "← Kembali ke Varian Standar" : "✨ Ingin Kustom Sendiri (Warna/Motif)?"}
+                            </button>
+                        </div>
+                    {/if}
+
+                    <!-- 3. FORM INPUTAN CUSTOM -->
+                    {#if modeCustomAktif}
+                        <div class="custom-form-fields" style="margin-top: 15px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; color: #4b5563;">
+                                    Jelaskan Permintaan Kustomisasi Anda:
+                                </label>
+                                <textarea 
+                                    bind:value={catatanCustom}
+                                    placeholder="Contoh: Saya ingin warna dasarnya hijau sage motif bintik hitam, dan tinggi toples ditambah 5cm..." 
+                                    rows="3"
+                                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; resize: vertical;"
+                                ></textarea>
+                            </div>
+
+                            <div>
+                                <label style="display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; color: #4b5563;">
+                                    Upload 1 Foto Referensi Kustom:
+                                </label>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    on:change={(e) => fileGambar = e.target.files[0]}
+                                    style="font-size: 0.85rem; color: #4b5563;"
+                                />
+                                <small style="display: block; color: #9ca3af; font-size: 0.75rem; margin-top: 2px;">
+                                    *Jika referensi berupa kombinasi 2 gambar, mohon gabungkan (kolase) terlebih dahulu.
+                                </small>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+                
                 <div class="action-buttons">
                     <button type="button" class="btn-chat-sekarang" on:click={handleChatSekarang}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>

@@ -220,8 +220,8 @@
 {#if isSanksiModalOpen}
   <div class="modal-backdrop" on:click={closeSanksiModal}>
     <div class="modal-box" on:click|stopPropagation>
-      <h3>Formulir Tindakan Sanksi</h3>
-      <p class="modal-subtitle">Berikan tindakan tegas untuk pengguna: <strong>{selectedReport?.reported_name}</strong></p>
+      <h3>Tindakan Sanksi</h3>
+      <p class="modal-subtitle">Berikan tindakan untuk pengguna: <strong>{selectedReport?.reported_name}</strong></p>
       
       <div class="form-group">
         <label for="sanction-type">Jenis Sanksi:</label>

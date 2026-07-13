@@ -69,20 +69,20 @@
   {:else if errorMessage}
     <div class="state-box error-box">
       <p class="error-text">⚠️ {errorMessage}</p>
-      <button on:click={() => goto('/buyer/orders')} class="btn-back">
-            <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-            >
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            Kembali ke Daftar Pesanan Saya
-        </button>
+      <button on:click={() => goto("/buyer/orders")} class="btn-back">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Kembali ke Daftar Pesanan Saya
+      </button>
     </div>
   {:else if orderMain}
     <div class="back-navigation">
@@ -125,9 +125,15 @@
         >
       </div>
     </div>
-    {#if (orderMain.order_status === 'canceled' || orderMain.request_status === 'canceled')}
-      <div class="cancel-reason-box" style="margin-top: 8px; font-size: 12px; color: #dc2626; text-align: right;">
-        <strong>Alasan:</strong> {orderMain.cancel_reason || orderMain.cancellation_reason || 'Dibatalkan oleh sistem.'}
+    {#if orderMain.order_status === "canceled" || orderMain.request_status === "canceled"}
+      <div
+        class="cancel-reason-box"
+        style="margin-top: 8px; font-size: 12px; color: #dc2626; text-align: right;"
+      >
+        <strong>Alasan:</strong>
+        {orderMain.cancel_reason ||
+          orderMain.cancellation_reason ||
+          "Dibatalkan oleh sistem."}
       </div>
     {/if}
 
@@ -137,61 +143,132 @@
 
     <div class="items-list">
       {#each orderDetails as product}
-  <div class="product-card-wrapper">
-    <div class="product-info-row">
-      <img
-        src={product.product_image_at_purchase ||
-          product.image ||
-          product.reference_image ||
-          ""}
-        alt={product.product_name}
-        class="product-image-mini"
-      />
-      <div class="product-details">
-        <h5 class="product-name">{product.product_name || "Produk"}</h5>
-        <p class="product-pricing">
-          {product.quantity || 1} barang ×
-          <span class="price-unit">
-            Rp {(
-              product.product_price_at_purchase ||
-              product.price ||
-              orderMain?.negotiated_price ||
-              0
-            ).toLocaleString("id-ID")}
-          </span>
-        </p>
-      </div>
-      <div class="product-subtotal">
-        <h5>
-          Rp {(
-            (product.product_price_at_purchase ||
-              product.price ||
-              orderMain?.negotiated_price ||
-              0) * (product.quantity || 1)
-          ).toLocaleString("id-ID")}
-        </h5>
-      </div>
-    </div>
+        <div class="product-card-wrapper">
+          <div class="product-info-row">
+            <img
+              src={product.product_image_at_purchase ||
+                product.image ||
+                product.reference_image ||
+                ""}
+              alt={product.product_name}
+              class="product-image-mini"
+            />
+            <div class="product-details">
+              <h5 class="product-name">{product.product_name || "Produk"}</h5>
+              <p class="product-pricing">
+                {product.quantity || 1} barang ×
+                <span class="price-unit">
+                  Rp {(
+                    product.product_price_at_purchase ||
+                    product.price ||
+                    orderMain?.negotiated_price ||
+                    0
+                  ).toLocaleString("id-ID")}
+                </span>
+              </p>
+            </div>
+            <div class="product-subtotal">
+              <h5>
+                Rp {(
+                  (product.product_price_at_purchase ||
+                    product.price ||
+                    orderMain?.negotiated_price ||
+                    0) * (product.quantity || 1)
+                ).toLocaleString("id-ID")}
+              </h5>
+            </div>
+          </div>
 
-    <div class="review-bubble-box">
-      {#if product.rating}
-        <div class="review-stars-row">
-          <span class="stars-gold">
-            {"★".repeat(product.rating)}{"☆".repeat(5 - product.rating)}
-          </span>
-          <span class="rating-score">({product.rating} / 5 Bintang)</span>
+          <!-- 🌟 TAMBAHAN INFO VARIAN / KUSTOMISASI DI SINI 🌟 -->
+              <div
+                class="customization-detail-box"
+                style="margin-top: 8px; font-size: 0.8rem;"
+              >
+                <!-- A. JIKA PRODUK ADALAH PESANAN KUSTOM -->
+                {#if product.is_custom}
+                  <div
+                    style="background-color: #f5f3ff; border: 1px dashed #c084fc; border-radius: 6px; padding: 8px 10px; margin-top: 5px;"
+                  >
+                    <span
+                      style="background-color: #8b5cf6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; display: inline-block; margin-bottom: 5px;"
+                    >
+                      ✨ PESANAN KUSTOM
+                    </span>
+                    <p
+                      style="margin: 0 0 5px 0; color: #4c1d95; line-height: 1.3;"
+                    >
+                      <strong>Catatan:</strong>
+                      {product.custom_note || "-"}
+                    </p>
+
+                    <!-- Tampilkan Foto Referensi Kustom Jika Ada -->
+                    {#if product.custom_image}
+                      <div style="margin-top: 6px;">
+                        <span
+                          style="display: block; font-size: 0.75rem; color: #6b7280; margin-bottom: 3px;"
+                          >Foto Referensi:</span
+                        >
+                        <a
+                          href={product.custom_image}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <img
+                            src={product.custom_image}
+                            alt="Referensi Kustom"
+                            style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; transition: transform 0.2s;"
+                            on:mouseenter={(e) =>
+                              (e.target.style.transform = "scale(1.05)")}
+                            on:mouseleave={(e) =>
+                              (e.target.style.transform = "scale(1)")}
+                          />
+                        </a>
+                        <small
+                          style="display: block; color: #9ca3af; font-size: 0.7rem; margin-top: 2px;"
+                          >*Klik gambar untuk memperbesar</small
+                        >
+                      </div>
+                    {/if}
+                  </div>
+
+                  <!-- B. JIKA PRODUK ADALAH VARIAN STANDAR -->
+                {:else if product.variants && Object.keys(product.variants).length > 0}
+                  <div
+                    style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px;"
+                  >
+                    {#each Object.entries(product.variants) as [key, val]}
+                      <span
+                        style="background-color: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;"
+                      >
+                        <strong
+                          >{key.charAt(0).toUpperCase() + key.slice(1)}:</strong
+                        >
+                        {val}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+
+          <div class="review-bubble-box">
+            {#if product.rating}
+              <div class="review-stars-row">
+                <span class="stars-gold">
+                  {"★".repeat(product.rating)}{"☆".repeat(5 - product.rating)}
+                </span>
+                <span class="rating-score">({product.rating} / 5 Bintang)</span>
+              </div>
+              <p class="review-comment-text">
+                "{product.comment || "Anda tidak menyertakan ulasan tertulis."}"
+              </p>
+            {:else}
+              <p class="no-review-text">
+                <i>⚠️ Anda belum menulis ulasan pada produk ini.</i>
+              </p>
+            {/if}
+          </div>
         </div>
-        <p class="review-comment-text">
-          "{product.comment || "Anda tidak menyertakan ulasan tertulis."}"
-        </p>
-      {:else}
-        <p class="no-review-text">
-          <i>⚠️ Anda belum menulis ulasan pada produk ini.</i>
-        </p>
-      {/if}
-    </div>
-  </div>
-{/each}
+      {/each}
     </div>
 
     <div class="footer-summary-card">
@@ -253,7 +330,7 @@
   }
   .badge-status-completed {
     background: #ebf8ff;
-    color: #2b6cb0;
+    color: #155724;
     padding: 6px 14px;
     border-radius: 20px;
     font-size: 13px;

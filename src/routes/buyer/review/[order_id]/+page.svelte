@@ -7,10 +7,10 @@
 
   const Toast = Swal.mixin({
     toast: true,
-    position: 'top-end',          // Posisi pop-up (bisa: top-start, top-end, bottom-start, bottom-end, dll)
-    showConfirmButton: false,      // Menyembunyikan tombol OK/Konfirmasi
-    timer: 3000,                   // Otomatis menutup dalam waktu 3 detik (3000ms)
-    timerProgressBar: true,        // Menampilkan bar durasi berjalan di bawah toast
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
     didOpen: (toast) => {
       toast.addEventListener('mouseenter', Swal.stopTimer);
       toast.addEventListener('mouseleave', Swal.resumeTimer);
@@ -23,16 +23,14 @@
   let loading = true;
   let errorMessage = "";
 
-  // Fungsi untuk mengambil data dari backend
+  // 1. MEMUAT DATA DETAIL ORDER DENGAN FIELD KUSTOMISASI BARU
   async function loadOrderDetails() {
     try {
       loading = true;
       
-      // Ambil data detail order berdasarkan parameter order_id
       const res = await api.get(`/buyer/orders/${order_id}`);
       const dataRespons = res.data;
 
-      // Memastikan dataRespons dan properti order utama ada dari backend
       if (dataRespons && dataRespons.order) {
         const orderMain = dataRespons.order;
         const listDetail = dataRespons.details || [];
@@ -45,6 +43,11 @@
             price: item.product_price_at_purchase,
             img: item.product_image_at_purchase, 
             quantity: item.quantity,
+            // 🌟 Petakan properti kustomisasi dari DB ke objek front-end
+            is_custom: item.is_custom || false,
+            variants: item.variants || {},
+            custom_note: item.custom_note || "",
+            custom_image: item.custom_image || "",
             rating: 0,   
             comment: ""  
           }))
@@ -60,7 +63,6 @@
     }
   }
 
-  // Jalankan fungsi fetch saat halaman pertama kali dibuka pembeli
   onMount(() => {
     if (order_id) {
       loadOrderDetails();
@@ -69,52 +71,46 @@
 
   // 2. LOGIKA SUBMIT
   async function handleSubmit() {
-  const unreviewedProducts = orderData.products.filter(p => p.rating === 0);
-  
-  // Peringatan jika ada produk yang belum diberi bintang
-  if (unreviewedProducts.length > 0) {
-    Toast.fire({
-      icon: 'warning',
-      title: 'Rating Bintang Wajib',
-      text: 'Mohon berikan rating bintang terlebih dahulu untuk semua produk.'
-    });
-    return;
-  }
-
-  const payload = orderData.products.map(product => ({
-    order_id: orderData.order_id,
-    product_id: product.id,
-    rating: product.rating,
-    comment: product.comment
-  }));
-
-  try {
-    // Kirim payload ke endpoint review backend Anda
-    await api.post('/buyer/orders/reviews', payload);
+    const unreviewedProducts = orderData.products.filter(p => p.rating === 0);
     
-    // Toast Sukses
-    Toast.fire({
-      icon: 'success',
-      title: 'Ulasan Berhasil!',
-      text: 'Terima kasih! Ulasan Anda berhasil disimpan.'
-    });
+    if (unreviewedProducts.length > 0) {
+      Toast.fire({
+        icon: 'warning',
+        title: 'Rating Bintang Wajib',
+        text: 'Mohon berikan rating bintang terlebih dahulu untuk semua produk.'
+      });
+      return;
+    }
 
-    // Beri jeda sebentar agar user sempat membaca toast sebelum diarahkan kembali ke daftar pesanan
-    setTimeout(() => {
-      goto('/buyer/orders'); // Sesuaikan dengan rute halaman order Anda
-    }, 2000);
+    const payload = orderData.products.map(product => ({
+      order_id: orderData.order_id,
+      product_id: product.id,
+      rating: product.rating,
+      comment: product.comment
+    }));
 
-  } catch (err) {
-    console.error(err);
-    
-    // Toast Gagal
-    Toast.fire({
-      icon: 'error',
-      title: 'Gagal Menyimpan',
-      text: err.response?.data?.message || 'Gagal menyimpan ulasan, coba beberapa saat lagi.'
-    });
+    try {
+      await api.post('/buyer/orders/reviews', payload);
+      
+      Toast.fire({
+        icon: 'success',
+        title: 'Ulasan Berhasil!',
+        text: 'Terima kasih! Ulasan Anda berhasil disimpan.'
+      });
+
+      setTimeout(() => {
+        goto('/buyer/orders');
+      }, 2000);
+
+    } catch (err) {
+      console.error(err);
+      Toast.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan',
+        text: err.response?.data?.message || 'Gagal menyimpan ulasan, coba beberapa saat lagi.'
+      });
+    }
   }
-}
 </script>
 
 <main class="review-container">
@@ -124,7 +120,7 @@
     <div class="error-state">{errorMessage}</div>
   {:else if orderData}
     <header class="review-header">
-      <a href="/orders" class="btn-back">
+      <a href="/buyer/orders" class="btn-back">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
           <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
         </svg>
@@ -145,8 +141,50 @@
               <h3>{product.name}</h3>
               <p class="product-qty">Jumlah: {product.quantity} pcs</p>
               <p class="product-price">Rp {product.price.toLocaleString('id-ID')}</p>
+              
+              <!-- 🌟 MENAMPILKAN VARIAN STANDAR (Jika Ada) -->
+              {#if Object.keys(product.variants).length > 0}
+                <div class="variants-badge-wrapper">
+                  {#each Object.entries(product.variants) as [key, value]}
+                    <span class="variant-badge">
+                      <strong>{key}:</strong> {value}
+                    </span>
+                  {/each}
+                </div>
+              {/if}
             </div>
           </div>
+
+          <!-- 🌟 MENAMPILKAN DETAIL KUSTOMISASI PEMBELI (Jika is_custom = true) -->
+          {#if product.is_custom}
+            <div class="custom-specs-box">
+              <div class="custom-title-row">
+                <span class="badge-custom-status">Produk Kustom</span>
+              </div>
+              
+              {#if product.custom_note}
+                <div class="custom-note-view">
+                  <strong>Catatan Kustom Pembeli:</strong>
+                  <p>"{product.custom_note}"</p>
+                </div>
+              {/if}
+
+              {#if product.custom_image}
+                <div class="custom-image-view">
+                  <strong>Referensi Kustom (Klik gambar untuk memperbesar):</strong>
+                  <div class="preview-img-wrapper">
+                    <!-- 🌟 Gambar dibungkus tag <a> agar langsung clickable -->
+                    <a href={product.custom_image} target="_blank" rel="noopener noreferrer" class="img-link-container">
+                      <img src={product.custom_image} alt="Referensi Desain Kustom" class="clickable-preview-img" />
+                      <!-- <div class="img-overlay-hover">
+                        <span>Buka Foto ↗</span>
+                      </div> -->
+                    </a>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {/if}
 
           <hr class="divider" />
 
@@ -278,7 +316,7 @@
   }
 
   .product-detail h3 {
-    margin: 0 0 6px 0;
+    margin: 0 0 4px 0;
     font-size: 15px;
     font-weight: 600;
     line-height: 1.4;
@@ -286,8 +324,98 @@
 
   .product-price {
     margin: 0;
-    color: #6c757d;
+    color: #212529;
+    font-weight: 600;
     font-size: 14px;
+  }
+
+  .product-qty {
+    margin: 2px 0;
+    color: #8a94a6;
+    font-size: 13px;
+  }
+
+  /* Styling Varian */
+  .variants-badge-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .variant-badge {
+    background-color: #f1f5f9;
+    color: #475569;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* 🌟 Styling Box Kustomisasi Baru */
+  .custom-specs-box {
+    margin-top: 16px;
+    background-color: #fafafa;
+    border-left: 4px solid #ff9800;
+    border-radius: 0 8px 8px 0;
+    padding: 14px;
+  }
+
+  .badge-custom-status {
+    background-color: #fff3e0;
+    color: #e65100;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 8px;
+  }
+
+  .custom-note-view strong, .custom-image-view strong {
+    font-size: 13px;
+    color: #4a5568;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .custom-note-view p {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: #2d3748;
+    font-style: italic;
+    background: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px dashed #e2e8f0;
+  }
+
+  .preview-img-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 6px;
+  }
+
+  .preview-img-wrapper img {
+    width: 90px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+  }
+
+  .btn-zoom {
+    font-size: 12px;
+    color: #ff9800;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .btn-zoom:hover {
+    text-decoration: underline;
   }
 
   .divider {
@@ -304,7 +432,6 @@
     margin-bottom: 10px;
   }
 
-  /* Logika CSS Interaktivitas Rating Bintang */
   .rating-section {
     text-align: center;
     margin-bottom: 20px;
@@ -340,7 +467,6 @@
     margin-top: 4px;
   }
 
-  /* Kolom Komentar */
   .comment-section textarea {
     width: 100%;
     box-sizing: border-box;
@@ -359,7 +485,6 @@
     box-shadow: 0 0 0 3px rgba(255, 183, 77, 0.15);
   }
 
-  /* Tombol Aksi */
   .form-actions {
     margin-top: 32px;
   }
@@ -380,10 +505,5 @@
 
   .btn-submit:hover {
     background-color: #f57c00;
-  }
-  .product-qty {
-    margin: 4px 0 0 0;
-    color: #8a94a6;
-    font-size: 13px;
   }
 </style>

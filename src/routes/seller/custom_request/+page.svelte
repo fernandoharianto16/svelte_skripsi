@@ -179,8 +179,8 @@
             year: "numeric",
             month: "short",
             day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+            // hour: "2-digit",
+            // minute: "2-digit",
         });
     }
 
@@ -192,8 +192,7 @@
 <div class="table-container">
     <h2>Daftar Custom Request Tersedia</h2>
     <p class="subtitle">
-        Pilih dan ambil pesanan kustom dari pembeli yang sesuai dengan keahlian
-        toko Anda.
+        Pilih dan ambil pesanan kustom dari pembeli yang Anda rasa cocok.
     </p>
 
     {#if isLoading}

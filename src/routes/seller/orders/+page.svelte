@@ -220,6 +220,12 @@
 
 <hr class="section-divider" /> -->
 
+<div class="dashboard-header">
+  <h2>Daftar Pesanan</h2>
+</div>
+
+<hr class="section-divider" />
+
 <div class="search-box">
   <i class="bi bi-search"></i>
   <input type="text" placeholder="Cari ID pesanan..." bind:value={search} />
