@@ -130,11 +130,11 @@
                 product.image ||
                 product.reference_image ||
                 ""}
-              alt={product.product_name}
+              alt={product.product_name_at_purchase}
               class="product-image-mini"
             />
             <div class="product-details">
-              <h5 class="product-name">{product.product_name || "Produk"}</h5>
+              <h5 class="product-name">{product.product_name_at_purchase || "Produk"}</h5>
               <p class="product-pricing">
                 {product.quantity || 1} barang ×
                 <span class="price-unit">
